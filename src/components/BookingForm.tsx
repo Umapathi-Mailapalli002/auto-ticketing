@@ -1,84 +1,102 @@
 import { useState, useId } from 'react';
 
 function BookingForm({ onAdd }: { onAdd: () => void }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    age: '',
-    gender: '',
-    email: '',
-    phone: '',
+  const formId = useId();
+  const [sharedData, setSharedData] = useState({
     from: '',
     to: '',
     date: '',
     classType: 'Sleeper',
     quota: 'General',
     trainNumber: '',
-    seatPref: '',
     autoTatkal: false,
   });
-  const formId = useId();
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+
+  const [passengers, setPassengers] = useState([
+    { name: '', age: '', gender: '', seatPref: '' }
+  ]);
+
+  const inputStyle =
+    'border border-gray-300 bg-white rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-gray-400 transition w-full';
+
+  const handleSharedChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData((prev) => ({
+    setSharedData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     }));
   };
 
+  const handlePassengerChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const updated = [...passengers];
+    updated[index][name] = value;
+    setPassengers(updated);
+  };
+
+  const addPassenger = () => {
+    setPassengers((prev) => [...prev, { name: '', age: '', gender: '', seatPref: '' }]);
+  };
+  const removePassenger = (index: number) => {
+    setPassengers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Step 1: Get existing bookings
     const existingData = localStorage.getItem('trainBookings');
     const bookings = existingData ? JSON.parse(existingData) : [];
 
-    // Step 2: Check if this booking already exists
-    const isDuplicate = bookings.some(
-      (booking: typeof formData) =>
-        booking.name === formData.name &&
-        booking.phone === formData.phone &&
-        booking.date === formData.date &&
-        booking.from.toLowerCase() === formData.from.toLowerCase() &&
-        booking.to.toLowerCase() === formData.to.toLowerCase()
-    );
+    const generateId = () => Math.random().toString(36).substring(2, 9);
 
-    if (isDuplicate) {
-      alert('This booking already exists.');
-      return;
-    }
+const updatedBookings = [...bookings];
 
-    // Step 3: Save booking if it's new
-    const addBooking = {
-      ...formData,
-      id: formId, // Generate a unique ID for the booking
-    };
-    bookings.push(addBooking);
-    localStorage.setItem('trainBookings', JSON.stringify(bookings));
+if (passengers.length === 1) {
+  const p = passengers[0];
+  const isDuplicate = bookings.some(
+    (b: any) =>
+      !b.passengers && // ensure it's not a group
+      b.name === p.name &&
+      b.date === sharedData.date &&
+      b.from.toLowerCase() === sharedData.from.toLowerCase() &&
+      b.to.toLowerCase() === sharedData.to.toLowerCase()
+  );
 
-    alert('Train booking submitted and saved!');
-    setFormData({
-      name: '',
-      age: '',
-      gender: '',
-      email: '',
-      phone: '',
+  if (!isDuplicate) {
+    updatedBookings.push({ ...sharedData, ...p, id: `${formId}-${p.name}` });
+  }
+} else {
+  // multiple passengers, store as a group
+  const groupId = `grp-${generateId()}`;
+  const passengerList = passengers.map((p, idx) => ({
+    ...p,
+    id: `${groupId}-${idx + 1}`,
+  }));
+
+  updatedBookings.push({
+    groupId,
+    ...sharedData,
+    passengers: passengerList,
+  });
+}
+
+localStorage.setItem('trainBookings', JSON.stringify(updatedBookings));
+
+    alert('Booking submitted!');
+    onAdd();
+
+    // Reset form
+    setSharedData({
       from: '',
       to: '',
       date: '',
       classType: 'Sleeper',
       quota: 'General',
       trainNumber: '',
-      seatPref: '',
       autoTatkal: false,
     });
-    onAdd(); // Notify parent to refresh the booking list
-
-    console.log('Booking saved:', formData);
+    setPassengers([{ name: '', age: '', gender: '', seatPref: '' }]);
   };
-
-
-  const inputStyle =
-    'border border-gray-300 bg-white rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-gray-400 transition w-full';
 
   return (
     <div className="min-h-screen bg-gradient-to-tr from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -86,141 +104,76 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
         onSubmit={handleSubmit}
         className="bg-white shadow-2xl rounded-xl p-4 w-full max-w-2xl space-y-6 border border-indigo-100"
       >
-        <h1 className="text-3xl font-extrabold text-center text-indigo-700">Auto Ticketing Tool</h1>
+        <h1 className="text-3xl font-extrabold text-center text-indigo-700">Auto Ticketing</h1>
 
+        {/* Shared Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            name="name"
-            type="text"
-            value={formData.name}
-            placeholder="Full Name"
-            required
-            onChange={handleChange}
-            className={inputStyle}
-          />
-          <input
-            name="age"
-            type="number"
-            value={formData.age}
-            placeholder="Age"
-            required
-            onChange={handleChange}
-            className={inputStyle}
-          />
-          <select
-            name="gender"
-            value={formData.gender}
-            required
-            onChange={handleChange}
-            className={inputStyle}
-          >
-            <option value="">Select Gender</option>
-            <option>Male</option>
-            <option>Female</option>
-            <option>Other</option>
-          </select>
-          <input
-            name="phone"
-            type="tel"
-            value={formData.phone}
-            placeholder="Phone Number"
-            required
-            onChange={handleChange}
-            className={inputStyle}
-          />
-          <input
-            name="email"
-            type="email"
-            value={formData.email}
-            placeholder="Email Address"
-            onChange={handleChange}
-            className={inputStyle}
-          />
-          <input
-            name="date"
-            type="date"
-            value={formData.date}
-            required
-            onChange={handleChange}
-            className={inputStyle}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            name="from"
-            type="text"
-            value={formData.from}
-            placeholder="From Station"
-            required
-            onChange={handleChange}
-            className={inputStyle}
-          />
-          <input
-            name="to"
-            type="text"
-            value={formData.to}
-            placeholder="To Station"
-            required
-            onChange={handleChange}
-            className={inputStyle}
-          />
-          <select
-            name="classType"
-            value={formData.classType}
-            onChange={handleChange}
-            className={inputStyle}
-          >
+          <input name="from" placeholder="From Station" required value={sharedData.from} onChange={handleSharedChange} className={inputStyle} />
+          <input name="to" placeholder="To Station" required value={sharedData.to} onChange={handleSharedChange} className={inputStyle} />
+          <input name="date" type="date" required value={sharedData.date} onChange={handleSharedChange} className={inputStyle} />
+          <input name="trainNumber" placeholder="Train Number (Optional)" value={sharedData.trainNumber} onChange={handleSharedChange} className={inputStyle} />
+          <select name="classType" value={sharedData.classType} onChange={handleSharedChange} className={inputStyle}>
             <option value="Sleeper">Sleeper</option>
             <option value="3AC">3AC</option>
             <option value="2AC">2AC</option>
             <option value="1AC">1AC</option>
           </select>
-          <select
-            name="quota"
-            value={formData.quota}
-            onChange={handleChange}
-            className={inputStyle}
-          >
+          <select name="quota" value={sharedData.quota} onChange={handleSharedChange} className={inputStyle}>
             <option value="General">General</option>
             <option value="Tatkal">Tatkal</option>
             <option value="Ladies">Ladies</option>
             <option value="Senior Citizen">Senior Citizen</option>
           </select>
-          <input
-            name="trainNumber"
-            type="text"
-            value={formData.trainNumber}
-            placeholder="Train Number (Optional)"
-            onChange={handleChange}
-            className={inputStyle}
-          />
-          <input
-            name="seatPref"
-            type="text"
-            value={formData.seatPref}
-            placeholder="Seat Preference (Optional)"
-            onChange={handleChange}
-            className={inputStyle}
-          />
         </div>
 
-        <div className="flex items-center space-x-3">
-          <input
-            name="autoTatkal"
-            type="checkbox"
-            checked={formData.autoTatkal}
-            onChange={handleChange}
-            className="accent-indigo-600"
-          />
-          <span className="text-sm text-gray-700">Auto-book at Tatkal Opening Time</span>
+        <div className="flex items-center gap-2">
+          <input type="checkbox" name="autoTatkal" checked={sharedData.autoTatkal} onChange={handleSharedChange} />
+          <label className="text-sm text-gray-700">Auto-book at Tatkal Opening Time</label>
         </div>
 
+        <hr className="my-4 border-indigo-200" />
 
-        <button
-          type="submit"
-          className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition"
-        >
+        {/* Passenger Forms */}
+        <div className="space-y-4">
+          {passengers.map((passenger, idx) => (
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end relative border border-gray-200 p-4 rounded-lg bg-gray-50">
+              <input name="name" placeholder="Passenger Name" value={passenger.name} onChange={(e) => handlePassengerChange(idx, e)} required className={inputStyle} />
+              <input name="age" type="number" placeholder="Age" value={passenger.age} onChange={(e) => handlePassengerChange(idx, e)} required className={inputStyle} />
+              <select name="gender" value={passenger.gender} onChange={(e) => handlePassengerChange(idx, e)} required className={inputStyle}>
+                <option value="">Gender</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+              <select name="seatPref" value={passenger.seatPref} onChange={(e) => handlePassengerChange(idx, e)} className={inputStyle}>
+                <option value="">Seat Pref</option>
+                <option>Lower</option>
+                <option>Middle</option>
+                <option>Upper</option>
+                <option>Side Lower</option>
+                <option>Side Upper</option>
+              </select>
+
+              {/* Remove Button */}
+              {passengers.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removePassenger(idx)}
+                  className="absolute top-2 right-2 text-red-500 hover:text-red-700 text-sm"
+                >
+                  ❌ Remove
+                </button>
+              )}
+            </div>
+          ))}
+
+        </div>
+
+        <button type="button" onClick={addPassenger} className="w-full py-2 text-indigo-700 font-semibold border border-indigo-300 rounded-lg hover:bg-indigo-100 transition">
+          ➕ Add Passenger
+        </button>
+
+        <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
           Book Ticket
         </button>
       </form>
