@@ -58,7 +58,7 @@ export default function BookingList() {
               <div key={b.groupId || index} className="border p-4 rounded-lg shadow bg-white relative">
                 <button
                   onClick={() => deleteBooking(b.groupId!)}
-                  className="absolute top-2 right-2 text-red-600 hover:text-red-800 text-sm"
+                  className="absolute cursor-pointer top-2 right-2 text-red-600 hover:text-red-800 text-sm"
                 >
                   ❌
                 </button>
@@ -89,8 +89,14 @@ export default function BookingList() {
           return (
             <div key={b.id || index} className="border p-4 rounded-lg shadow bg-white relative">
               <button
+                onClick={() => {open(`https://www.irctc.co.in/nget/train-search`, '_blank')}}
+                className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
+              >
+               ➡️
+              </button>
+              <button
                 onClick={() => deleteBooking(b.id!)}
-                className="absolute top-2 right-2 text-red-600 hover:text-red-800 text-sm"
+                className="absolute cursor-pointer top-2 right-2 text-red-600 hover:text-red-800 text-sm"
               >
                 ❌
               </button>
