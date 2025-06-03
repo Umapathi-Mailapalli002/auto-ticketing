@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-interface Passenger {
+export interface Passenger {
   id: string;
   name: string;
   age: string;

@@ -1,5 +1,5 @@
 import { useState, useId } from 'react';
-
+import type { Passenger } from './BookingList';
 function BookingForm({ onAdd }: { onAdd: () => void }) {
   const formId = useId();
   const [sharedData, setSharedData] = useState({
@@ -27,12 +27,23 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
     }));
   };
 
-  const handlePassengerChange = (index: number, e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    const updated = [...passengers];
-    updated[index][name] = value;
-    setPassengers(updated);
+ const handlePassengerChange = (
+  index: number,
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+) => {
+  const { name, value } = e.target;
+  const updated = [...passengers];
+
+  const key = name as keyof Passenger;
+
+  updated[index] = {
+    ...updated[index],
+    [key]: value,
   };
+
+  setPassengers(updated);
+};
+
 
   const addPassenger = () => {
     setPassengers((prev) => [...prev, { name: '', age: '', gender: '', seatPref: '' }]);
