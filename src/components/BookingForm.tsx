@@ -3,8 +3,6 @@ import type { Passenger } from './BookingList';
 function BookingForm({ onAdd }: { onAdd: () => void }) {
   const formId = useId();
   const [sharedData, setSharedData] = useState({
-    from: '',
-    to: '',
     date: '',
     classType: 'Sleeper',
     quota: 'General',
@@ -27,22 +25,22 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
     }));
   };
 
- const handlePassengerChange = (
-  index: number,
-  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-) => {
-  const { name, value } = e.target;
-  const updated = [...passengers];
+  const handlePassengerChange = (
+    index: number,
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    const updated = [...passengers];
 
-  const key = name as keyof Passenger;
+    const key = name as keyof Passenger;
 
-  updated[index] = {
-    ...updated[index],
-    [key]: value,
+    updated[index] = {
+      ...updated[index],
+      [key]: value,
+    };
+
+    setPassengers(updated);
   };
-
-  setPassengers(updated);
-};
 
 
   const addPassenger = () => {
@@ -55,59 +53,58 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const existingData = localStorage.getItem('trainBookings');
-    const bookings = existingData ? JSON.parse(existingData) : [];
 
     const generateId = () => Math.random().toString(36).substring(2, 9);
 
-const updatedBookings = [...bookings];
+    // Get existing bookings from chrome.storage
+    chrome.storage.local.get(['trainBookings'], (result) => {
+      const bookings = result.trainBookings || [];
+      const updatedBookings = [...bookings];
 
-if (passengers.length === 1) {
-  const p = passengers[0];
-  const isDuplicate = bookings.some(
-    (b: any) =>
-      !b.passengers && // ensure it's not a group
-      b.name === p.name &&
-      b.date === sharedData.date &&
-      b.from.toLowerCase() === sharedData.from.toLowerCase() &&
-      b.to.toLowerCase() === sharedData.to.toLowerCase()
-  );
+      if (passengers.length === 1) {
+        const p = passengers[0];
+        const isDuplicate = bookings.some(
+          (b: any) =>
+            !b.passengers && // ensure it's not a group
+            b.name === p.name &&
+            b.date === sharedData.date
+        );
 
-  if (!isDuplicate) {
-    updatedBookings.push({ ...sharedData, ...p, id: `${formId}-${p.name}` });
-  }
-} else {
-  // multiple passengers, store as a group
-  const groupId = `grp-${generateId()}`;
-  const passengerList = passengers.map((p, idx) => ({
-    ...p,
-    id: `${groupId}-${idx + 1}`,
-  }));
+        if (!isDuplicate) {
+          updatedBookings.push({ ...sharedData, ...p, id: `${formId}-${p.name}` });
+        }
+      } else {
+        const groupId = `grp-${generateId()}`;
+        const passengerList = passengers.map((p, idx) => ({
+          ...p,
+          id: `${groupId}-${idx + 1}`,
+        }));
 
-  updatedBookings.push({
-    groupId,
-    ...sharedData,
-    passengers: passengerList,
-  });
-}
+        updatedBookings.push({
+          groupId,
+          ...sharedData,
+          passengers: passengerList,
+        });
+      }
 
-localStorage.setItem('trainBookings', JSON.stringify(updatedBookings));
+      // Save updated data back to chrome.storage
+      chrome.storage.local.set({ trainBookings: updatedBookings }, () => {
+        alert('Booking submitted!');
+        onAdd();
 
-    alert('Booking submitted!');
-    onAdd();
-
-    // Reset form
-    setSharedData({
-      from: '',
-      to: '',
-      date: '',
-      classType: 'Sleeper',
-      quota: 'General',
-      trainNumber: '',
-      autoTatkal: false,
+        // Reset form
+        setSharedData({
+          date: '',
+          classType: 'Sleeper',
+          quota: 'General',
+          trainNumber: '',
+          autoTatkal: false,
+        });
+        setPassengers([{ name: '', age: '', gender: '', seatPref: '' }]);
+      });
     });
-    setPassengers([{ name: '', age: '', gender: '', seatPref: '' }]);
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-tr from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -119,21 +116,37 @@ localStorage.setItem('trainBookings', JSON.stringify(updatedBookings));
 
         {/* Shared Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input name="from" placeholder="From Station" required value={sharedData.from} onChange={handleSharedChange} className={inputStyle} />
-          <input name="to" placeholder="To Station" required value={sharedData.to} onChange={handleSharedChange} className={inputStyle} />
           <input name="date" type="date" required value={sharedData.date} onChange={handleSharedChange} className={inputStyle} />
-          <input name="trainNumber" placeholder="Train Number (Optional)" value={sharedData.trainNumber} onChange={handleSharedChange} className={inputStyle} />
+          <input name="trainNumber" placeholder="Train Number" value={sharedData.trainNumber} onChange={handleSharedChange} className={inputStyle} />
           <select name="classType" value={sharedData.classType} onChange={handleSharedChange} className={inputStyle}>
-            <option value="Sleeper">Sleeper</option>
-            <option value="3AC">3AC</option>
-            <option value="2AC">2AC</option>
-            <option value="1AC">1AC</option>
+            <option value="All Classes">All Classes</option>
+            <option value="Anubhuti Class (EA)">Anubhuti Class (EA)</option>
+            <option value="AC First Class (1A)">AC First Class (1A)</option>
+            <option value="Vistadome AC (EV)">Vistadome AC (EV)</option>
+            <option value="Exec. Chair Car (EC)">Exec. Chair Car (EC)</option>
+            <option value="AC 2 Tier (2A)">AC 2 Tier (2A)</option>
+            <option value="First Class (FC)">First Class (FC)</option>
+            <option value="AC 3 Tier (3A)">AC 3 Tier (3A)</option>
+            <option value="AC 3 Economy (3E)">AC 3 Economy (3E)</option>
+            <option value="Vistadome Chair Car (VC)">Vistadome Chair Car (VC)</option>
+            <option value="AC Chair car (CC)">AC Chair car (CC)</option>
+            <option value="Sleeper (SL)">Sleeper (SL)</option>
+            <option value="Vistadome Non AC (VS)">Vistadome Non AC (VS)</option>
+            <option value="Second Sitting (2S)">Second Sitting (2S)</option>
           </select>
-          <select name="quota" value={sharedData.quota} onChange={handleSharedChange} className={inputStyle}>
-            <option value="General">General</option>
-            <option value="Tatkal">Tatkal</option>
-            <option value="Ladies">Ladies</option>
-            <option value="Senior Citizen">Senior Citizen</option>
+          <select
+            name="quota"
+            value={sharedData.quota}
+            onChange={handleSharedChange}
+            className={inputStyle}
+          >
+            <option value="GENERAL">GENERAL</option>
+            <option value="LADIES">LADIES</option>
+            <option value="LOWER BERTH/SR.CITIZEN">LOWER BERTH/SR.CITIZEN</option>
+            <option value="PERSON WITH DISABILITY">PERSON WITH DISABILITY</option>
+            <option value="DUTY PASS">DUTY PASS</option>
+            <option value="TATKAL">TATKAL</option>
+            <option value="PREMIUM TATKAL">PREMIUM TATKAL</option>
           </select>
         </div>
 

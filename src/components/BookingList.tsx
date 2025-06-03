@@ -11,8 +11,6 @@ export interface Passenger {
 interface BookingGroup {
   groupId?: string;
   id?: string; // for single bookings
-  from: string;
-  to: string;
   date: string;
   classType: string;
   quota: string;
@@ -28,22 +26,31 @@ interface BookingGroup {
 export default function BookingList() {
   const [bookings, setBookings] = useState<BookingGroup[]>([]);
 
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('trainBookings') || '[]');
+useEffect(() => {
+  chrome.storage.local.get('trainBookings', (result) => {
+    const stored = result.trainBookings || [];
     setBookings(stored);
-    console.log('Loaded bookings:', stored);
-  }, []);
+    console.log('Loaded bookings from chrome.storage:', stored);
+  });
+}, []);
 
-  const deleteBooking = (idOrGroupId: string) => {
-    const updated = bookings.filter((b) => {
-      if (b.passengers) {
-        return b.groupId !== idOrGroupId;
-      }
-      return b.id !== idOrGroupId;
-    });
-    localStorage.setItem('trainBookings', JSON.stringify(updated));
+ const deleteBooking = (idOrGroupId: string) => {
+  console.log('Deleting booking:', idOrGroupId);
+
+  const updated = bookings.filter((b) => {
+    if (b.passengers) {
+      return b.groupId !== idOrGroupId;
+    }
+    return b.id !== idOrGroupId;
+  });
+
+  console.log('Updated bookings:', updated);
+
+  chrome.storage.local.set({ trainBookings: updated }, () => {
+    console.log('Storage updated');
     setBookings(updated);
-  };
+  });
+};
 
   return (
     <div className="mt-6 space-y-6">
@@ -56,6 +63,12 @@ export default function BookingList() {
             // Grouped booking
             return (
               <div key={b.groupId || index} className="border p-4 rounded-lg shadow bg-white relative">
+                 <button
+                onClick={() => {open(`https://www.irctc.co.in/nget?bookingId=${b.groupId}`, '_blank')}}
+                className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
+              >
+               ➡️
+              </button>
                 <button
                   onClick={() => deleteBooking(b.groupId!)}
                   className="absolute cursor-pointer top-2 right-2 text-red-600 hover:text-red-800 text-sm"
@@ -64,8 +77,6 @@ export default function BookingList() {
                 </button>
                 <h3 className="font-bold text-indigo-600 mb-2">Family/Group Booking</h3>
                 <p><strong>Date:</strong> {b.date}</p>
-                <p><strong>From:</strong> {b.from}</p>
-                <p><strong>To:</strong> {b.to}</p>
                 <p><strong>Class:</strong> {b.classType}</p>
                 <p><strong>Quota:</strong> {b.quota}</p>
                 <p><strong>Auto Tatkal:</strong> {b.autoTatkal ? 'Yes' : 'No'}</p>
@@ -89,7 +100,7 @@ export default function BookingList() {
           return (
             <div key={b.id || index} className="border p-4 rounded-lg shadow bg-white relative">
               <button
-                onClick={() => {open(`https://www.irctc.co.in/nget/train-search`, '_blank')}}
+                onClick={() => {open(`https://www.irctc.co.in/nget?bookingId=${b.id}`, '_blank')}}
                 className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
               >
                ➡️
@@ -105,8 +116,6 @@ export default function BookingList() {
                 <p><strong>Age:</strong> {b.age}</p>
                 <p><strong>Gender:</strong> {b.gender}</p>
                 <p><strong>Date:</strong> {b.date}</p>
-                <p><strong>From:</strong> {b.from}</p>
-                <p><strong>To:</strong> {b.to}</p>
                 <p><strong>Class:</strong> {b.classType}</p>
                 <p><strong>Quota:</strong> {b.quota}</p>
                 {b.trainNumber && <p><strong>Train No.:</strong> {b.trainNumber}</p>}
