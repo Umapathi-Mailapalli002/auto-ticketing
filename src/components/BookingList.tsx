@@ -21,36 +21,44 @@ interface BookingGroup {
   age?: string;
   gender?: string;
   passengers?: Passenger[];
+  credentials?: {
+    username: string;
+    password: string;
+    paymentMethod?: string;
+  };
+  
 }
+
+
 
 export default function BookingList() {
   const [bookings, setBookings] = useState<BookingGroup[]>([]);
 
-useEffect(() => {
-  chrome.storage.local.get('trainBookings', (result) => {
-    const stored = result.trainBookings || [];
-    setBookings(stored);
-    console.log('Loaded bookings from chrome.storage:', stored);
-  });
-}, []);
+  useEffect(() => {
+    chrome.storage.local.get('trainBookings', (result) => {
+      const stored = result.trainBookings || [];
+      setBookings(stored);
+      console.log('Loaded bookings from chrome.storage:', stored);
+    });
+  }, []);
 
- const deleteBooking = (idOrGroupId: string) => {
-  console.log('Deleting booking:', idOrGroupId);
+  const deleteBooking = (idOrGroupId: string) => {
+    console.log('Deleting booking:', idOrGroupId);
 
-  const updated = bookings.filter((b) => {
-    if (b.passengers) {
-      return b.groupId !== idOrGroupId;
-    }
-    return b.id !== idOrGroupId;
-  });
+    const updated = bookings.filter((b) => {
+      if (b.passengers) {
+        return b.groupId !== idOrGroupId;
+      }
+      return b.id !== idOrGroupId;
+    });
 
-  console.log('Updated bookings:', updated);
+    console.log('Updated bookings:', updated);
 
-  chrome.storage.local.set({ trainBookings: updated }, () => {
-    console.log('Storage updated');
-    setBookings(updated);
-  });
-};
+    chrome.storage.local.set({ trainBookings: updated }, () => {
+      console.log('Storage updated');
+      setBookings(updated);
+    });
+  };
 
   return (
     <div className="mt-6 space-y-6">
@@ -60,15 +68,16 @@ useEffect(() => {
       ) : (
         bookings.map((b, index) => {
           if (b.passengers) {
+
             // Grouped booking
             return (
               <div key={b.groupId || index} className="border p-4 rounded-lg shadow bg-white relative">
-                 <button
-                onClick={() => {open(`https://www.irctc.co.in/nget?bookingId=${b.groupId}`, '_blank')}}
-                className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
-              >
-               ➡️
-              </button>
+                <button
+                  onClick={() => { open(`https://www.irctc.co.in/nget?bookingId=${b.groupId}`, '_blank') }}
+                  className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
+                >
+                  ➡️
+                </button>
                 <button
                   onClick={() => deleteBooking(b.groupId!)}
                   className="absolute cursor-pointer top-2 right-2 text-red-600 hover:text-red-800 text-sm"
@@ -81,7 +90,6 @@ useEffect(() => {
                 <p><strong>Quota:</strong> {b.quota}</p>
                 <p><strong>Auto Tatkal:</strong> {b.autoTatkal ? 'Yes' : 'No'}</p>
                 <p><strong>Train No.:</strong> {b.trainNumber}</p>
-
                 <div className="mt-4 space-y-2">
                   {b.passengers.map((p) => (
                     <div key={p.id} className="p-2 border rounded bg-gray-50 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
@@ -92,6 +100,15 @@ useEffect(() => {
                     </div>
                   ))}
                 </div>
+                {
+                  b.credentials && (
+                    <>
+                      <p><strong>Username:</strong> {b.credentials.username}</p>
+                      <p><strong>Password:</strong> {b.credentials.password}</p> {/* Masking password for display */}
+                    </>
+                  )
+                }
+                {b.credentials && <p><strong>Payment Method:</strong> {b.credentials.paymentMethod}</p>}
               </div>
             );
           }
@@ -99,11 +116,12 @@ useEffect(() => {
           // Single booking
           return (
             <div key={b.id || index} className="border p-4 rounded-lg shadow bg-white relative">
+
               <button
-                onClick={() => {open(`https://www.irctc.co.in/nget?bookingId=${b.id}`, '_blank')}}
+                onClick={() => { open(`https://www.irctc.co.in/nget?bookingId=${b.id}`, '_blank') }}
                 className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
               >
-               ➡️
+                ➡️
               </button>
               <button
                 onClick={() => deleteBooking(b.id!)}
@@ -128,6 +146,13 @@ useEffect(() => {
                     <span className="text-gray-500">No</span>
                   )}
                 </p>
+                {b.credentials && (
+                <>
+                  <p><strong>Username:</strong> {b.credentials.username}</p>
+                  <p><strong>Password:</strong> {b.credentials.password}</p>
+                </>
+              )}
+              {b.credentials && <p><strong>Payment Method:</strong> {b.credentials.paymentMethod}</p>}
               </div>
             </div>
           );

@@ -9,7 +9,11 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
     trainNumber: '',
     autoTatkal: false,
   });
-
+  const [credentials, setCredentials] = useState({
+    username: '',
+    password: '',
+    paymentMethod: 'UPI',
+  });
   const [passengers, setPassengers] = useState([
     { name: '', age: '', gender: '', seatPref: '' }
   ]);
@@ -24,7 +28,13 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
     }));
   };
-
+const handleCredentialChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const { name, value } = e.target;
+  setCredentials((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+};
   const handlePassengerChange = (
     index: number,
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -44,8 +54,11 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
 
 
   const addPassenger = () => {
-    setPassengers((prev) => [...prev, { name: '', age: '', gender: '', seatPref: '' }]);
+    if (passengers.length < 4) {
+      setPassengers((prev) => [...prev, { name: '', age: '', gender: '', seatPref: '' }]);
+    }
   };
+
   const removePassenger = (index: number) => {
     setPassengers((prev) => prev.filter((_, i) => i !== index));
   };
@@ -71,7 +84,7 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
         );
 
         if (!isDuplicate) {
-          updatedBookings.push({ ...sharedData, ...p, id: `${formId}-${p.name}` });
+          updatedBookings.push({ ...sharedData, ...p, credentials, id: `${formId}-${p.name}` });
         }
       } else {
         const groupId = `grp-${generateId()}`;
@@ -84,6 +97,7 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
           groupId,
           ...sharedData,
           passengers: passengerList,
+          credentials,
         });
       }
 
@@ -116,6 +130,41 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
 
         {/* Shared Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <hr className="my-4 border-indigo-200" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              name="username"
+              placeholder="Username"
+              value={credentials.username}
+              onChange={handleCredentialChange}
+              required
+              className={inputStyle}
+            />
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              value={credentials.password}
+              onChange={handleCredentialChange}
+              required
+              className={inputStyle}
+            />
+            <select
+              name="paymentMethod"
+              value={credentials.paymentMethod}
+              onChange={handleCredentialChange}
+              className={inputStyle}
+            >
+              <option value="UPI">UPI</option>
+              <option value="Card">Card</option>
+              <option value="NetBanking">Net Banking</option>
+              <option value="Wallet">Wallet</option>
+              <option value="Cash on Counter">Cash on Counter</option>
+            </select>
+          </div>
+
           <input name="date" type="date" required value={sharedData.date} onChange={handleSharedChange} className={inputStyle} />
           <input name="trainNumber" placeholder="Train Number" value={sharedData.trainNumber} onChange={handleSharedChange} className={inputStyle} />
           <select name="classType" value={sharedData.classType} onChange={handleSharedChange} className={inputStyle}>
@@ -193,9 +242,18 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
 
         </div>
 
-        <button type="button" onClick={addPassenger} className="w-full py-2 text-indigo-700 font-semibold border border-indigo-300 rounded-lg hover:bg-indigo-100 transition">
-          ➕ Add Passenger
+        <button
+          type="button"
+          onClick={addPassenger}
+          disabled={passengers.length >= 4}
+          className={`w-full py-2 font-semibold rounded-lg transition ${passengers.length >= 4
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            : 'text-indigo-700 border border-indigo-300 hover:bg-indigo-100'
+            }`}
+        >
+          ➕ Add Passenger {passengers.length}/4
         </button>
+
 
         <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
           Book Ticket
