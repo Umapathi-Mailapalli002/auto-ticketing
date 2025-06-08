@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export interface Passenger {
   id: string;
@@ -35,6 +35,38 @@ interface BookingGroup {
 
 export default function BookingList() {
   const [bookings, setBookings] = useState<BookingGroup[]>([]);
+  const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [currentTime, setCurrentTime] = useState('');
+
+   useEffect(() => {
+    const checkAndAutoTrigger = () => {
+      const now = new Date();
+
+      bookings.forEach((b) => {
+        if (!b.autoTatkal || !b.date) return;
+
+        const journeyDate = new Date(b.date);
+        const tatkalTime = new Date(journeyDate);
+        tatkalTime.setDate(journeyDate.getDate());
+        tatkalTime.setHours(17, 0, 0, 0);
+
+        const diff = Math.abs(now.getTime() - tatkalTime.getTime());
+        const windowMs = 1000 * 60; // 1 minute window
+
+        if (diff <= windowMs) {
+          const key = b.groupId || b.id;
+          const btn = buttonRefs.current[key!];
+          if (btn) {
+            console.log(`🚀 Triggering Tatkal for: ${key}`);
+            btn.click();
+          }
+        }
+      });
+    };
+
+    const interval = setInterval(checkAndAutoTrigger, 10000); // check every 10s
+    return () => clearInterval(interval);
+  }, [bookings]);
 
   useEffect(() => {
     chrome.storage.local.get('trainBookings', (result) => {
@@ -62,37 +94,70 @@ export default function BookingList() {
     });
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour12: true,
+      };
+      setCurrentTime(new Intl.DateTimeFormat('en-IN', options).format(now));
+    }, 1000); // update every second
+
+    return () => clearInterval(interval);
+  }, []);
   return (
     <div className="mt-6 space-y-6">
       <h2 className="text-xl font-bold text-indigo-700">Saved Bookings</h2>
       {bookings.length === 0 ? (
         <p className="text-gray-500">No bookings available.</p>
       ) : (
-        bookings.map((b, index) => {
+        bookings.map((b) => {
+          const key = b.groupId || b.id;
+          const journeyKey = `journey-${key}`;
+
+          const button = (
+            <button
+              ref={el => { buttonRefs.current[key!] = el; }}
+              onClick={() => open(`https://www.irctc.co.in/nget?bookingId=${key}`, '_blank')}
+              className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
+            >
+              ➡️
+            </button>
+          );
+
+          const deleteBtn = (
+            <button
+              onClick={() => deleteBooking(key!)}
+              className="absolute cursor-pointer top-2 right-2 text-red-600 hover:text-red-800 text-sm"
+            >
+              ❌
+            </button>
+          );
+
           if (b.passengers) {
 
             // Grouped booking
             return (
-              <div key={b.groupId || index} className="border p-4 rounded-lg shadow bg-white relative">
-                <button
-                  onClick={() => { open(`https://www.irctc.co.in/nget?bookingId=${b.groupId}`, '_blank') }}
-                  className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
-                >
-                  ➡️
-                </button>
-                <button
-                  onClick={() => deleteBooking(b.groupId!)}
-                  className="absolute cursor-pointer top-2 right-2 text-red-600 hover:text-red-800 text-sm"
-                >
-                  ❌
-                </button>
+              <div key={journeyKey} className="border p-4 rounded-lg shadow bg-white relative">
+                {button}
+                {deleteBtn}
                 <h3 className="font-bold text-indigo-600 mb-2">Family/Group Booking</h3>
                 <p><strong>From:</strong> {b.fromStation}</p>
                 <p><strong>To:</strong> {b.toStation}</p>
                 <p><strong>Date:</strong> {b.date}</p>
                 <p><strong>Class:</strong> {b.classType}</p>
                 <p><strong>Quota:</strong> {b.quota}</p>
+                <div className='flex justify-between items-start md:items-center'>
                 <p><strong>Auto Tatkal:</strong> {b.autoTatkal ? 'Yes' : 'No'}</p>
+                <strong>{currentTime}</strong>
+                </div>
                 <p><strong>Train No.:</strong> {b.trainNumber}</p>
                 <div className="mt-4 space-y-2">
                   {b.passengers.map((p) => (
@@ -119,20 +184,9 @@ export default function BookingList() {
 
           // Single booking
           return (
-            <div key={b.id || index} className="border p-4 rounded-lg shadow bg-white relative">
-
-              <button
-                onClick={() => { open(`https://www.irctc.co.in/nget?bookingId=${b.id}`, '_blank') }}
-                className="absolute cursor-pointer top-0 right-8 text-red-600 text-2xl hover:text-red-800"
-              >
-                ➡️
-              </button>
-              <button
-                onClick={() => deleteBooking(b.id!)}
-                className="absolute cursor-pointer top-2 right-2 text-red-600 hover:text-red-800 text-sm"
-              >
-                ❌
-              </button>
+            <div key={journeyKey} className="border p-4 rounded-lg shadow bg-white relative">
+          {button}
+          {deleteBtn}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <p><strong>From:</strong> {b.fromStation}</p>
                 <p><strong>To:</strong> {b.toStation}</p>
@@ -144,14 +198,10 @@ export default function BookingList() {
                 <p><strong>Quota:</strong> {b.quota}</p>
                 {b.trainNumber && <p><strong>Train No.:</strong> {b.trainNumber}</p>}
                 {b.seatPref && <p><strong>Seat Pref:</strong> {b.seatPref}</p>}
-                <p>
-                  <strong>Auto Tatkal:</strong>{' '}
-                  {b.autoTatkal ? (
-                    <span className="text-green-600 font-semibold">Yes</span>
-                  ) : (
-                    <span className="text-gray-500">No</span>
-                  )}
-                </p>
+                <div className='flex justify-between items-start md:items-center'>
+                <p><strong>Auto Tatkal:</strong> {b.autoTatkal ? 'Yes' : 'No'}</p>
+                <strong>{currentTime}</strong>
+                </div>
                 {b.credentials && (
                   <>
                     <p><strong>Username:</strong> {b.credentials.username}</p>
