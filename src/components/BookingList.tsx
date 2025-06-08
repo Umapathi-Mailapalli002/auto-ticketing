@@ -11,6 +11,8 @@ export interface Passenger {
 interface BookingGroup {
   groupId?: string;
   id?: string; // for single bookings
+  fromStation: string;
+  toStation: string;
   date: string;
   classType: string;
   quota: string;
@@ -26,7 +28,7 @@ interface BookingGroup {
     password: string;
     paymentMethod?: string;
   };
-  
+
 }
 
 
@@ -85,6 +87,8 @@ export default function BookingList() {
                   ❌
                 </button>
                 <h3 className="font-bold text-indigo-600 mb-2">Family/Group Booking</h3>
+                <p><strong>From:</strong> {b.fromStation}</p>
+                <p><strong>To:</strong> {b.toStation}</p>
                 <p><strong>Date:</strong> {b.date}</p>
                 <p><strong>Class:</strong> {b.classType}</p>
                 <p><strong>Quota:</strong> {b.quota}</p>
@@ -130,10 +134,12 @@ export default function BookingList() {
                 ❌
               </button>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <p><strong>From:</strong> {b.fromStation}</p>
+                <p><strong>To:</strong> {b.toStation}</p>
+                <p><strong>Date:</strong> {b.date}</p>
                 <p><strong>Name:</strong> {b.name}</p>
                 <p><strong>Age:</strong> {b.age}</p>
                 <p><strong>Gender:</strong> {b.gender}</p>
-                <p><strong>Date:</strong> {b.date}</p>
                 <p><strong>Class:</strong> {b.classType}</p>
                 <p><strong>Quota:</strong> {b.quota}</p>
                 {b.trainNumber && <p><strong>Train No.:</strong> {b.trainNumber}</p>}
@@ -147,12 +153,12 @@ export default function BookingList() {
                   )}
                 </p>
                 {b.credentials && (
-                <>
-                  <p><strong>Username:</strong> {b.credentials.username}</p>
-                  <p><strong>Password:</strong> {b.credentials.password}</p>
-                </>
-              )}
-              {b.credentials && <p><strong>Payment Method:</strong> {b.credentials.paymentMethod}</p>}
+                  <>
+                    <p><strong>Username:</strong> {b.credentials.username}</p>
+                    <p><strong>Password:</strong> {b.credentials.password}</p>
+                  </>
+                )}
+                {b.credentials && <p><strong>Payment Method:</strong> {b.credentials.paymentMethod}</p>}
               </div>
             </div>
           );

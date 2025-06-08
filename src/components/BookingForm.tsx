@@ -1,6 +1,5 @@
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import type { Passenger } from './BookingList';
-import stationData from '../api/list_of_stations.json';
 function BookingForm({ onAdd }: { onAdd: () => void }) {
   const formId = useId();
   const [sharedData, setSharedData] = useState({
@@ -20,8 +19,17 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
   const [passengers, setPassengers] = useState([
     { name: '', age: '', gender: '', seatPref: '' }
   ]);
-const stationNames = stationData.map(s => `${s.station_name} (${s.station_code})`);
-console.log('Available stations:', stationNames);
+
+  const [stationData, setStationData] = useState<{ station_name: string; station_code: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/list_of_stations.json')
+      .then((res) => res.json())
+      .then((data) => setStationData(data));
+  }, []);
+
+  const stationNames = stationData.map(s => `${s.station_name} (${s.station_code})`);
+  console.log('Available stations:', stationNames);
   const inputStyle =
     'border border-gray-300 bg-white rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-gray-400 transition w-full';
 
@@ -137,31 +145,31 @@ console.log('Available stations:', stationNames);
         {/* Shared Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <hr className="my-4 border-indigo-200" />
-<input
-  list="station-options"
-  name="fromStation"
-  placeholder="From Station"
-  value={sharedData.fromStation}
-  onChange={handleSharedChange}
-  className={inputStyle}
-  required
-/>
+          <input
+            list="station-options"
+            name="fromStation"
+            placeholder="From Station"
+            value={sharedData.fromStation}
+            onChange={handleSharedChange}
+            className={inputStyle}
+            required
+          />
 
-<input
-  list="station-options"
-  name="toStation"
-  placeholder="To Station"
-  value={sharedData.toStation}
-  onChange={handleSharedChange}
-  className={inputStyle}
-  required
-/>
+          <input
+            list="station-options"
+            name="toStation"
+            placeholder="To Station"
+            value={sharedData.toStation}
+            onChange={handleSharedChange}
+            className={inputStyle}
+            required
+          />
 
-<datalist id="station-options">
-  {stationNames.map((station, index) => (
-    <option key={index} value={station} />
-  ))}
-</datalist>
+          <datalist id="station-options">
+            {stationNames.map((station, index) => (
+              <option key={index} value={station} />
+            ))}
+          </datalist>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input

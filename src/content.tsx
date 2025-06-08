@@ -7,6 +7,51 @@
 
     let selectedBooking: any = null; // To share booking info across functions
 
+const simulateAutoCompleteInput = async (inputSelector: string, stationName: string) => {
+    const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+    const input = document.querySelector(inputSelector) as HTMLInputElement;
+    if (!input) {
+        console.warn(`Input not found for selector: ${inputSelector}`);
+        return;
+    }
+
+    const firstFour = stationName.substring(0, 4);
+    input.focus();
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await delay(100);
+
+    for (let i = 1; i <= firstFour.length; i++) {
+        input.value = firstFour.substring(0, i);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await delay(200); // delay after each keystroke
+    }
+
+    await delay(1000); // wait for suggestions to appear
+
+    // Look globally because suggestions are often appended to <body>
+    const options = document.querySelectorAll('.ui-autocomplete-panel .ui-autocomplete-item');
+    console.log(`Found ${options.length} autocomplete options for "${stationName}"`);
+    let clicked = false;
+
+    for (const option of options) {
+        const text = option.textContent?.trim().toLowerCase();
+        if (text && stationName.toLowerCase().includes(text)) {
+            (option as HTMLElement).click();
+            clicked = true;
+            console.log(`✅ Selected: ${option.textContent}`);
+            break;
+        }
+    }
+
+    if (!clicked) {
+        console.warn(`❌ No autocomplete match found for "${stationName}"`);
+    }
+};
+
+
+
     const triggerLoginModalAndAutofill = async () => {
         const loginLink = document.querySelector('a.loginText') as HTMLElement;
         if (!loginLink) return console.warn("LOGIN link not found");
@@ -68,6 +113,8 @@
         if (!selectedBooking) return;
         await selectDropdownOption('#journeyClass', selectedBooking.classType);
         await selectDropdownOption('#journeyQuota', selectedBooking.quota);
+        await simulateAutoCompleteInput('input[aria-label="Enter From station. Input is Mandatory."]', selectedBooking.fromStation);
+        await simulateAutoCompleteInput('input[aria-label="Enter To station. Input is Mandatory."]', selectedBooking.toStation);
     };
 
     const fillFromStorage = async (data: any[]) => {
@@ -85,6 +132,7 @@
         if (typeof chrome !== 'undefined' && chrome.storage?.local) {
             chrome.storage.local.get('trainBookings', async (result) => {
                 const data = result.trainBookings || [];
+                console.log("Loaded bookings from chrome.storage:", data);
                 await fillFromStorage(data);
                 await triggerLoginModalAndAutofill(); // do this after loading credentials
             });
