@@ -13,7 +13,7 @@
         return field;
     };
 
-    const waitForVisiblePanel = async (timeout = 1000) => {
+    const waitForVisiblePanel = async (timeout = 500) => {
         const start = Date.now();
         while (Date.now() - start < timeout) {
             const panel = document.querySelector('.ui-autocomplete-panel[style*="opacity: 1"]');
@@ -23,71 +23,77 @@
         return null;
     };
 
-    const simulateAutoCompleteInput = async (formControlName: string, stationName: string) => {
-        const input = getAutocompleteInput(formControlName);
-        if (!input) {
-            console.warn(`Input not found for form control: ${formControlName}`);
-            return false;
+const simulateAutoCompleteInput = async (formControlName: string, stationName: string) => {
+    const input = getAutocompleteInput(formControlName);
+    if (!input) {
+        console.warn(`Input not found for form control: ${formControlName}`);
+        return false;
+    }
+
+    // Focus and clear input
+    input.focus();
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    await delay(200);
+
+    // Prepare input substring for typing and matching
+    const stationNorm = stationName.replace(/\s+/g, '');
+    const partialInput = stationNorm.length >= 4 ? stationNorm.slice(0, 4) : stationNorm;
+
+    // Type the substring
+    for (let i = 0; i < partialInput.length; i++) {
+        input.value = partialInput.slice(0, i + 1);
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: partialInput[i] }));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await delay(120);
+    }
+
+    // Wait for suggestion panel
+    const panel = await waitForVisiblePanel();
+    if (!panel) {
+        console.warn('Autocomplete panel not visible');
+        return false;
+    }
+
+    // Find suggestion with matching logic
+    const items = Array.from(panel.querySelectorAll('li[role="option"]'));
+    const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+    const matchLen = partialInput.length;
+    const inputNorm = partialInput.toLowerCase();
+
+    let found = false;
+    for (const item of items) {
+        // Skip separator/group headers
+        if (!item.textContent || item.textContent.trim().startsWith('-----')) continue;
+
+        let text = (item.textContent || '').replace(/\(.*?\)/g, '').trim();
+        let suggestionNorm = norm(text);
+
+        // If station name < 4 chars, match all; else, match first 4 chars
+        let suggestionSub = suggestionNorm.slice(0, matchLen);
+        if (suggestionSub === inputNorm) {
+            item.scrollIntoView({ behavior: 'auto', block: 'center' });
+            await delay(100);
+            ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(eventType => {
+                item.dispatchEvent(new MouseEvent(eventType, {
+                    view: window,
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true
+                }));
+            });
+            input.blur();
+            console.log(`✅ Selected: ${text}`);
+            found = true;
+            await delay(300);
+            break;
         }
-
-        // Focus the input field before typing
-        input.focus();
-        input.value = '';
-        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-        await delay(200);
-
-        // Type the first 4 characters
-        const partialInput = stationName.replace(/\s+/g, '').slice(0, 4);
-        for (let i = 0; i < partialInput.length; i++) {
-            input.value = partialInput.slice(0, i + 1);
-            input.dispatchEvent(new KeyboardEvent('keydown', { key: partialInput[i] }));
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            await delay(120);
-        }
-
-        // Wait for suggestion panel
-        const panel = await waitForVisiblePanel();
-        if (!panel) {
-            console.warn('Autocomplete panel not visible');
-            return false;
-        }
-
-        // Find first suggestion whose first 4 chars match input
-        const items = Array.from(panel.querySelectorAll('li[role="option"]'));
-        const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
-        const inputNorm = partialInput.toLowerCase();
-
-        let found = false;
-        for (const item of items) {
-            // Get the suggestion text, strip parentheses, etc.
-            let text = (item.textContent || '').replace(/\(.*?\)/g, '').trim();
-            let suggestionNorm = norm(text).slice(0, 4);
-            if (suggestionNorm === inputNorm) {
-                // Simulate real user interaction
-                item.scrollIntoView({ behavior: 'auto', block: 'center' });
-                await delay(100);
-                ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(eventType => {
-                    item.dispatchEvent(new MouseEvent(eventType, {
-                        view: window,
-                        bubbles: true,
-                        cancelable: true,
-                        composed: true
-                    }));
-                });
-                input.blur();
-                console.log(`✅ Selected: ${text}`);
-                found = true;
-                await delay(300);
-                break;
-            }
-        }
-        if (!found) {
-            console.warn(`❌ No suggestion matched first 4 chars "${partialInput}"`);
-        }
-        return found;
-    };
-
-
+    }
+    if (!found) {
+        console.warn(`❌ No suggestion matched "${partialInput}"`);
+    }
+    return found;
+};
 
     const triggerLoginModalAndAutofill = async () => {
         const loginLink = document.querySelector('a.loginText') as HTMLElement;
@@ -150,17 +156,17 @@
         if (!selectedBooking) return;
 
         await selectDropdownOption('#journeyClass', selectedBooking.classType);
-        await delay(500);
+        await delay(200);
 
         await selectDropdownOption('#journeyQuota', selectedBooking.quota);
-        await delay(500);
+        await delay(200);
 
         // Updated autocomplete calls with formControlName
         const fromSuccess = await simulateAutoCompleteInput('origin', selectedBooking.fromStation);
-        await delay(fromSuccess ? 800 : 500);
+        await delay(fromSuccess ? 500 : 300);
 
         const toSuccess = await simulateAutoCompleteInput('destination', selectedBooking.toStation);
-        await delay(toSuccess ? 800 : 500);
+        await delay(toSuccess ? 500 : 300);
 
         return fromSuccess && toSuccess;
     };
