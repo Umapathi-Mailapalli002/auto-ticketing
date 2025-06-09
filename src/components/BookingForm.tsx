@@ -28,7 +28,7 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
       .then((data) => setStationData(data));
   }, []);
 
-  const stationNames = stationData.map(s => `${s.station_name} (${s.station_code})`);
+  const stationNames = stationData.map(s => `${s.station_name} - ${s.station_code}`);
   console.log('Available stations:', stationNames);
   const inputStyle =
     'border border-gray-300 bg-white rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 placeholder:text-gray-400 transition w-full';
