@@ -1,18 +1,29 @@
 (function autofillFromBooking() {
+    // Parse the booking ID from the URL
     const params = new URLSearchParams(window.location.search);
     const bookingId = params.get('bookingId');
     if (!bookingId) return;
 
+    // Utility: Delay for async UI steps
     const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-    let selectedBooking: any = null; // To share booking info across functions
+    let selectedBooking: any = null; // Holds the booking info for autofill
 
+    /**
+     * Get the PrimeNG autocomplete input by formControlName.
+     * @param formControlName The Angular form control name (e.g., 'origin', 'destination')
+     */
     const getAutocompleteInput = (formControlName: string) => {
-        const field = document.querySelector(`p-autocomplete[formcontrolname="${formControlName}"] input[role="searchbox"]`) as HTMLInputElement;
-        console.log(`Found autocomplete input for ${formControlName}:`, field);
+        const field = document.querySelector(
+            `p-autocomplete[formcontrolname="${formControlName}"] input[role="searchbox"]`
+        ) as HTMLInputElement;
         return field;
     };
 
+    /**
+     * Wait for the autocomplete suggestion panel to become visible.
+     * @param timeout Maximum time to wait in ms.
+     */
     const waitForVisiblePanel = async (timeout = 500) => {
         const start = Date.now();
         while (Date.now() - start < timeout) {
@@ -23,86 +34,96 @@
         return null;
     };
 
-const simulateAutoCompleteInput = async (formControlName: string, stationName: string) => {
-    const input = getAutocompleteInput(formControlName);
-    if (!input) {
-        console.warn(`Input not found for form control: ${formControlName}`);
-        return false;
-    }
-
-    // Focus and clear input
-    input.focus();
-    input.value = '';
-    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-    await delay(200);
-
-    // Prepare input substring for typing and matching
-    const stationNorm = stationName.replace(/\s+/g, '');
-    const partialInput = stationNorm.length >= 4 ? stationNorm.slice(0, 4) : stationNorm;
-
-    // Type the substring
-    for (let i = 0; i < partialInput.length; i++) {
-        input.value = partialInput.slice(0, i + 1);
-        input.dispatchEvent(new KeyboardEvent('keydown', { key: partialInput[i] }));
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        await delay(120);
-    }
-
-    // Wait for suggestion panel
-    const panel = await waitForVisiblePanel();
-    if (!panel) {
-        console.warn('Autocomplete panel not visible');
-        return false;
-    }
-
-    // Find suggestion with matching logic
-    const items = Array.from(panel.querySelectorAll('li[role="option"]'));
-    const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
-    const matchLen = partialInput.length;
-    const inputNorm = partialInput.toLowerCase();
-
-    let found = false;
-    for (const item of items) {
-        // Skip separator/group headers
-        if (!item.textContent || item.textContent.trim().startsWith('-----')) continue;
-
-        let text = (item.textContent || '').replace(/\(.*?\)/g, '').trim();
-        let suggestionNorm = norm(text);
-
-        // If station name < 4 chars, match all; else, match first 4 chars
-        let suggestionSub = suggestionNorm.slice(0, matchLen);
-        if (suggestionSub === inputNorm) {
-            item.scrollIntoView({ behavior: 'auto', block: 'center' });
-            await delay(100);
-            ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(eventType => {
-                item.dispatchEvent(new MouseEvent(eventType, {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true,
-                    composed: true
-                }));
-            });
-            input.blur();
-            console.log(`✅ Selected: ${text}`);
-            found = true;
-            await delay(300);
-            break;
+    /**
+     * Simulate typing and select a suggestion in the PrimeNG autocomplete.
+     * Matches first 4 chars (or less) of the station name.
+     * @param formControlName The Angular form control name.
+     * @param stationName The full station name to match.
+     */
+    const simulateAutoCompleteInput = async (formControlName: string, stationName: string) => {
+        const input = 
+        getAutocompleteInput(formControlName);
+        if (!input) {
+            console.warn(`Input not found for form control: ${formControlName}`);
+            return false;
         }
-    }
-    if (!found) {
-        console.warn(`❌ No suggestion matched "${partialInput}"`);
-    }
-    return found;
-};
 
+        // Focus and clear input
+        input.focus();
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        await delay(200);
+
+        // Prepare substring for typing and matching
+        const stationNorm = stationName.replace(/\s+/g, '');
+        const partialInput = stationNorm.length >= 4 ? stationNorm.slice(0, 4) : stationNorm;
+
+        // Simulate typing each character
+        for (let i = 0; i < partialInput.length; i++) {
+            input.value = partialInput.slice(0, i + 1);
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: partialInput[i] }));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            await delay(120);
+        }
+
+        // Wait for the suggestion panel
+        const panel = await waitForVisiblePanel();
+        if (!panel) {
+            console.warn('Autocomplete panel not visible');
+            return false;
+        }
+
+        // Try to find and select the matching suggestion
+        const items = Array.from(panel.querySelectorAll('li[role="option"]'));
+        const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase();
+        const matchLen = partialInput.length;
+        const inputNorm = partialInput.toLowerCase();
+
+        let found = false;
+        for (const item of items) {
+            // Skip group headers
+            if (!item.textContent || item.textContent.trim().startsWith('-----')) continue;
+
+            let text = (item.textContent || '').replace(/\(.*?\)/g, '').trim();
+            let suggestionNorm = norm(text);
+
+            // Match first N chars (N = 4 or less)
+            let suggestionSub = suggestionNorm.slice(0, matchLen);
+            if (suggestionSub === inputNorm) {
+                item.scrollIntoView({ behavior: 'auto', block: 'center' });
+                await delay(100);
+                ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(eventType => {
+                    item.dispatchEvent(new MouseEvent(eventType, {
+                        view: window,
+                        bubbles: true,
+                        cancelable: true,
+                        composed: true
+                    }));
+                });
+                input.blur();
+                console.log(`✅ Selected: ${text}`);
+                found = true;
+                await delay(300);
+                break;
+            }
+        }
+        if (!found) {
+            console.warn(`❌ No suggestion matched "${partialInput}"`);
+        }
+        return found;
+    };
+
+    /**
+     * Opens the login modal and autofills credentials from booking.
+     */
     const triggerLoginModalAndAutofill = async () => {
         const loginLink = document.querySelector('a.loginText') as HTMLElement;
         if (!loginLink) return console.warn("LOGIN link not found");
 
-        loginLink.click(); // Open the login modal
+        loginLink.click();
         console.log("Clicked login button to open modal");
 
-        // Wait for login fields
+        // Wait for login fields to appear
         let tries = 30;
         let usernameInput: HTMLInputElement | null = null;
         let passwordInput: HTMLInputElement | null = null;
@@ -111,7 +132,6 @@ const simulateAutoCompleteInput = async (formControlName: string, stationName: s
             await delay(300);
             usernameInput = document.querySelector('input[formcontrolname="userid"]') as HTMLInputElement;
             passwordInput = document.querySelector('input[formcontrolname="password"]') as HTMLInputElement;
-
             if (usernameInput && passwordInput) break;
         }
 
@@ -120,7 +140,7 @@ const simulateAutoCompleteInput = async (formControlName: string, stationName: s
             return;
         }
 
-        // Fill without focus
+        // Fill credentials
         usernameInput.value = selectedBooking.credentials.username;
         usernameInput.dispatchEvent(new Event("input", { bubbles: true }));
         usernameInput.dispatchEvent(new Event("change", { bubbles: true }));
@@ -132,7 +152,74 @@ const simulateAutoCompleteInput = async (formControlName: string, stationName: s
         console.log("Filled in username and password without focusing.");
     };
 
+    /**
+     * Selects the date in the PrimeNG calendar widget based on booking.
+     * @param selectedBooking The booking object containing the date (YYYY-MM-DD).
+     */
+    async function selectDateFromBooking(selectedBooking: any) {
+        const dateInput = document.querySelector('.ui-calendar input[type="text"]') as HTMLInputElement;
+        if (!dateInput) return false;
+        dateInput.focus();
+        dateInput.click();
+        await delay(100);
 
+        // Wait for calendar popup
+        const waitForCalendarPanel = async (timeout = 1000) => {
+            const start = Date.now();
+            while (Date.now() - start < timeout) {
+                const panel = document.querySelector('.ui-datepicker');
+                if (panel && getComputedStyle(panel).opacity === '1') return panel;
+                await delay(50);
+            }
+            return null;
+        };
+        const calendarPanel = await waitForCalendarPanel();
+        if (!calendarPanel) return false;
+
+        // Parse target date
+        const targetDate = selectedBooking.date; // e.g., "2025-06-12"
+        const [year, month, day] = targetDate.split('-').map(Number);
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        const targetMonthName = monthNames[month - 1];
+
+        // Helper to get current calendar month/year
+        const getCurrentMonthYear = () => {
+            const monthText = (calendarPanel.querySelector('.ui-datepicker-month')?.textContent ?? '').trim();
+            const yearText = (calendarPanel.querySelector('.ui-datepicker-year')?.textContent ?? '').trim();
+            return { month: monthText, year: Number(yearText) };
+        };
+
+        // Navigate to correct month/year
+        for (let i = 0; i < 12; i++) {
+            const { month: currentMonth, year: currentYear } = getCurrentMonthYear();
+            if (currentMonth === targetMonthName && currentYear === year) break;
+            if (currentYear > year || (currentYear === year && monthNames.indexOf(currentMonth) > (month - 1))) {
+                (calendarPanel.querySelector('.ui-datepicker-prev') as HTMLElement)?.click();
+            } else {
+                (calendarPanel.querySelector('.ui-datepicker-next') as HTMLElement)?.click();
+            }
+            await delay(150);
+        }
+
+        // Select the correct day
+        const dayCells = calendarPanel.querySelectorAll('a.ui-state-default:not(.ui-state-disabled)') as NodeListOf<HTMLAnchorElement>;
+        for (const cell of dayCells) {
+            if (cell.textContent && cell.textContent.trim() === String(day)) {
+                cell.scrollIntoView({ block: 'center' });
+                cell.click();
+                break;
+            }
+        }
+    }
+
+    /**
+     * Select an option from a PrimeNG dropdown by visible text.
+     * @param containerSelector The selector for the dropdown container.
+     * @param targetText The text to match.
+     */
     const selectDropdownOption = async (containerSelector: string, targetText: string) => {
         const container = document.querySelector(containerSelector);
         if (!container) return;
@@ -141,7 +228,7 @@ const simulateAutoCompleteInput = async (formControlName: string, stationName: s
         if (!dropdown) return;
 
         dropdown.click();
-        await delay(200);
+        await delay(50);
 
         const options = document.querySelectorAll('.ui-dropdown-item');
         for (const option of options) {
@@ -152,25 +239,34 @@ const simulateAutoCompleteInput = async (formControlName: string, stationName: s
         }
     };
 
+    /**
+     * Populates the form fields using the selected booking.
+     */
     const populateForm = async () => {
         if (!selectedBooking) return;
 
         await selectDropdownOption('#journeyClass', selectedBooking.classType);
-        await delay(200);
+        await delay(50);
 
         await selectDropdownOption('#journeyQuota', selectedBooking.quota);
-        await delay(200);
+        await delay(50);
 
-        // Updated autocomplete calls with formControlName
+        await selectDateFromBooking(selectedBooking);
+        await delay(50);
+
         const fromSuccess = await simulateAutoCompleteInput('origin', selectedBooking.fromStation);
-        await delay(fromSuccess ? 500 : 300);
+        await delay(fromSuccess ? 300 : 100);
 
         const toSuccess = await simulateAutoCompleteInput('destination', selectedBooking.toStation);
-        await delay(toSuccess ? 500 : 300);
+        await delay(toSuccess ? 300 : 100);
 
         return fromSuccess && toSuccess;
     };
 
+    /**
+     * Loads the booking data from storage and populates the form.
+     * @param data The array of stored bookings.
+     */
     const fillFromStorage = async (data: any[]) => {
         const found = data.find((b: any) => b.id === bookingId || b.groupId === bookingId);
         if (!found) {
@@ -182,13 +278,16 @@ const simulateAutoCompleteInput = async (formControlName: string, stationName: s
         await populateForm();
     };
 
+    /**
+     * Entry point: loads booking data from Chrome storage or localStorage, then autofills.
+     */
     const start = async () => {
         if (typeof chrome !== 'undefined' && chrome.storage?.local) {
             chrome.storage.local.get('trainBookings', async (result) => {
                 const data = result.trainBookings || [];
                 console.log("Loaded bookings from chrome.storage:", data);
                 await fillFromStorage(data);
-                await triggerLoginModalAndAutofill(); // do this after loading credentials
+                await triggerLoginModalAndAutofill(); // Autofill credentials after form fill
             });
         } else {
             const data = JSON.parse(localStorage.getItem('trainBookings') || '[]');
@@ -197,5 +296,6 @@ const simulateAutoCompleteInput = async (formControlName: string, stationName: s
         }
     };
 
+    // Start the autofill process
     start();
 })();
