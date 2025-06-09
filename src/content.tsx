@@ -10,6 +10,92 @@
     let selectedBooking: any = null; // Holds the booking info for autofill
 
     /**
+         * Wait for the train list to load after search.
+         */
+    async function findAndBookTrainClass(selectedBooking: any) {
+        // Wait for train list to load
+        const waitForTrainList = async (timeout = 2000) => {
+            const start = Date.now();
+            while (Date.now() - start < timeout) {
+                const trainBlocks = document.querySelectorAll('app-train-avl-enq');
+                if (trainBlocks.length > 0) return Array.from(trainBlocks);
+                await new Promise(res => setTimeout(res, 300));
+            }
+            return [];
+        };
+
+        // Normalize class names for matching
+        const classMap: Record<string, string> = {
+            'SL': 'Sleeper (SL)',
+            '3A': 'AC 3 Tier (3A)',
+            '2A': 'AC 2 Tier (2A)',
+            '1A': 'AC First Class (1A)'
+            // Add more if needed
+        };
+
+        const trainBlocks = await waitForTrainList();
+        if (!trainBlocks.length) {
+            console.warn("No trains found.");
+            return false;
+        }
+
+        const trainNumber = String(selectedBooking.trainNumber).replace(/\D/g, '');
+        const classType = String(selectedBooking.classType).toUpperCase();
+        const classFullName = classMap[classType] || classType;
+
+        // 1. Find the train block by train number
+        let matchedTrainBlock = null;
+        for (const block of trainBlocks) {
+            const heading = block.querySelector('.train-heading strong');
+            if (heading && heading.textContent) {
+                const match = heading.textContent.match(/\((\d+)\)/);
+                if (match && match[1] === trainNumber) {
+                    matchedTrainBlock = block;
+                    break;
+                }
+            }
+        }
+        if (!matchedTrainBlock) {
+            console.warn("Train number not found:", trainNumber);
+            return false;
+        }
+
+        // 2. Find the class cell by class name
+        const classCells = matchedTrainBlock.querySelectorAll('div.pre-avl');
+        let foundClassCell = null;
+        for (const cell of classCells) {
+            const strong = cell.querySelector('strong');
+            if (
+                strong &&
+                strong.textContent &&
+                strong.textContent.trim().toUpperCase() === classFullName.toUpperCase()
+            ) {
+                foundClassCell = cell;
+                break;
+            }
+        }
+        if (!foundClassCell) {
+            console.warn("Class not found:", classType, "as", classFullName);
+            return false;
+        }
+
+        // 3. Click the first available "Book Now" for this class/timing
+        // Book Now button is: <button type="button" class="btnDefault ..."> Book Now </button>
+        // Only click if not disabled
+        const bookBtn = foundClassCell.parentElement?.parentElement?.querySelector('button.btnDefault:not(.disable-book):not([disabled])');
+        if (bookBtn) {
+            bookBtn.scrollIntoView({ block: 'center' });
+            (bookBtn as HTMLElement).click();
+            await new Promise(res => setTimeout(res, 500));
+            console.log(`✅ Booked ${classFullName} in train ${trainNumber}`);
+            return true;
+        } else {
+            console.warn("No available Book Now button for this class.");
+            return false;
+        }
+    }
+
+    /**
      * Get the PrimeNG autocomplete input by formControlName.
      * @param formControlName The Angular form control name (e.g., 'origin', 'destination')
      */
@@ -41,8 +127,8 @@
      * @param stationName The full station name to match.
      */
     const simulateAutoCompleteInput = async (formControlName: string, stationName: string) => {
-        const input = 
-        getAutocompleteInput(formControlName);
+        const input =
+            getAutocompleteInput(formControlName);
         if (!input) {
             console.warn(`Input not found for form control: ${formControlName}`);
             return false;
@@ -117,11 +203,6 @@
      * Opens the login modal and autofills credentials from booking.
      */
     const triggerLoginModalAndAutofill = async () => {
-        const loginLink = document.querySelector('a.loginText') as HTMLElement;
-        if (!loginLink) return console.warn("LOGIN link not found");
-
-        loginLink.click();
-        console.log("Clicked login button to open modal");
 
         // Wait for login fields to appear
         let tries = 30;
@@ -259,6 +340,19 @@
 
         const toSuccess = await simulateAutoCompleteInput('destination', selectedBooking.toStation);
         await delay(toSuccess ? 300 : 100);
+
+        const searchButton = document.querySelector('button.search_btn.train_Search[type="submit"]');
+        if (searchButton) {
+            searchButton.scrollIntoView({ block: 'center' });
+            (searchButton as HTMLElement).click();
+            await delay(300);
+            console.log("✅ Clicked the Search button.");
+        } else {
+            console.warn("❌ Search button not found.");
+            return false;
+        }
+
+        await findAndBookTrainClass(selectedBooking);
 
         return fromSuccess && toSuccess;
     };
