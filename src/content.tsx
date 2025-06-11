@@ -14,7 +14,7 @@
          */
     async function findAndBookTrainClass(selectedBooking: any) {
         // Wait for train list to load
-        const waitForTrainList = async (timeout = 2000) => {
+        const waitForTrainList = async (timeout = 5000) => {
             const start = Date.now();
             while (Date.now() - start < timeout) {
                 const trainBlocks = document.querySelectorAll('app-train-avl-enq');
@@ -83,9 +83,71 @@
             return false;
         }
 
-        const selectinToBook = document.querySelectorAll('div.ng-star-inserted') as NodeListOf<HTMLAnchorElement>;
-        console.log("find this, selectinToBook", selectinToBook);
-        
+        async function clickFirstDateCellAfterClassTab() {
+            // Wait up to 8 seconds for the table to appear
+            let tries = 80;
+            let table = null;
+            while (tries-- > 0 && !table) {
+                // More specific selector including PrimeNG's wrapper component
+                table = document.querySelector(
+                    'app-train-avl-enq div[style*="overflow-x: auto"] > table'
+                );
+                if (!table) await new Promise(res => setTimeout(res, 100));
+            }
+            if (!table) {
+                console.warn('Table not found after waiting');
+                return false;
+            }
+
+            // Wait for the first row with ACTUAL CONTENT (not just structural <tr>)
+            let row = null;
+            tries = 30;
+            while (tries-- > 0) {
+                row = table.querySelector('tr');
+                // PrimeNG often adds empty rows initially, wait for populated ones
+                if (row && row.querySelector('td.link.ng-star-inserted')) break;
+                await new Promise(res => setTimeout(res, 100));
+            }
+            if (!row) {
+                console.warn('Row not found in table');
+                return false;
+            }
+
+            // Select only DATE CELLS (td with both link and ng-star-inserted classes)
+            const tdElements = Array.from(row.querySelectorAll('td.link.ng-star-inserted'));
+            console.log('Found date cells:', tdElements.length);
+
+            if (!tdElements.length) {
+                console.warn('No date <td> found');
+                return false;
+            }
+
+            // Click FIRST DATE CELL (index 0)
+            const firstDateTd = tdElements[0];
+            const preAvlDiv = firstDateTd.querySelector('.pre-avl');
+
+            if (!preAvlDiv) {
+                console.warn('No .pre-avl div found in first date cell');
+                return false;
+            }
+
+            // Full click simulation for Angular/PrimeNG
+            preAvlDiv.scrollIntoView({ block: 'center', behavior: 'auto' });
+            ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(eventType => {
+                preAvlDiv.dispatchEvent(new MouseEvent(eventType, {
+                    bubbles: true,
+                    composed: true
+                }));
+            });
+            console.log('✅ Clicked first date cell:', preAvlDiv.textContent?.trim());
+            return true;
+        }
+
+
+
+
+        // Usage:
+        await clickFirstDateCellAfterClassTab();
 
         // 3. Click the first available "Book Now" for this class/timing
         // Book Now button is: <button type="button" class="btnDefault ..."> Book Now </button>
