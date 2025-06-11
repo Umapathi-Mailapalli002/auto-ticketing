@@ -18,6 +18,7 @@
             const start = Date.now();
             while (Date.now() - start < timeout) {
                 const trainBlocks = document.querySelectorAll('app-train-avl-enq');
+                console.log("this is trainBlocks", trainBlocks);
                 if (trainBlocks.length > 0) return Array.from(trainBlocks);
                 await new Promise(res => setTimeout(res, 300));
             }
@@ -51,6 +52,7 @@
                 const match = heading.textContent.match(/\((\d+)\)/);
                 if (match && match[1] === trainNumber) {
                     matchedTrainBlock = block;
+                    console.log("Matched train block:", matchedTrainBlock);
                     break;
                 }
             }
@@ -68,9 +70,11 @@
             if (
                 strong &&
                 strong.textContent &&
-                strong.textContent.trim().toUpperCase() === classFullName.toUpperCase()
+                strong.textContent.trim().toUpperCase() === selectedBooking.classType.toUpperCase()
             ) {
                 foundClassCell = cell;
+                console.log("Matched class cell:", foundClassCell);
+                (cell as HTMLElement).click(); // Click to expand if needed
                 break;
             }
         }
@@ -79,10 +83,14 @@
             return false;
         }
 
+        const selectinToBook = document.querySelectorAll('div.ng-star-inserted') as NodeListOf<HTMLAnchorElement>;
+        console.log("find this, selectinToBook", selectinToBook);
+        
+
         // 3. Click the first available "Book Now" for this class/timing
         // Book Now button is: <button type="button" class="btnDefault ..."> Book Now </button>
         // Only click if not disabled
-        const bookBtn = foundClassCell.parentElement?.parentElement?.querySelector('button.btnDefault:not(.disable-book):not([disabled])');
+        const bookBtn = matchedTrainBlock.querySelector('button.btnDefault:not(.disable-book):not([disabled])');
         if (bookBtn) {
             bookBtn.scrollIntoView({ block: 'center' });
             (bookBtn as HTMLElement).click();
@@ -90,7 +98,7 @@
             console.log(`✅ Booked ${classFullName} in train ${trainNumber}`);
             return true;
         } else {
-            console.warn("No available Book Now button for this class.");
+            console.warn("No available Book Now button for this train.");
             return false;
         }
     }
@@ -202,35 +210,39 @@
     /**
      * Opens the login modal and autofills credentials from booking.
      */
-    const triggerLoginModalAndAutofill = async () => {
-
-        // Wait for login fields to appear
+    const autofillLoginWhenModalAppears = async () => {
         let tries = 30;
-        let usernameInput: HTMLInputElement | null = null;
-        let passwordInput: HTMLInputElement | null = null;
-
+        let usernameInput = null, passwordInput = null;
         while (tries-- > 0) {
             await delay(300);
-            usernameInput = document.querySelector('input[formcontrolname="userid"]') as HTMLInputElement;
-            passwordInput = document.querySelector('input[formcontrolname="password"]') as HTMLInputElement;
+            usernameInput = document.querySelector('input[formcontrolname="userid"]');
+            passwordInput = document.querySelector('input[formcontrolname="password"]');
             if (usernameInput && passwordInput) break;
         }
-
         if (!usernameInput || !passwordInput || !selectedBooking?.credentials) {
             console.warn("Username/password fields or credentials not found.");
             return;
         }
-
-        // Fill credentials
-        usernameInput.value = selectedBooking.credentials.username;
+        (usernameInput as HTMLInputElement).value = selectedBooking.credentials.username;
         usernameInput.dispatchEvent(new Event("input", { bubbles: true }));
         usernameInput.dispatchEvent(new Event("change", { bubbles: true }));
-
-        passwordInput.value = selectedBooking.credentials.password;
+        (passwordInput as HTMLInputElement).value = selectedBooking.credentials.password;
         passwordInput.dispatchEvent(new Event("input", { bubbles: true }));
         passwordInput.dispatchEvent(new Event("change", { bubbles: true }));
+        console.log("✅ Autofilled login credentials.");
+    };
 
-        console.log("Filled in username and password without focusing.");
+    // --- Watch for login modal after "Book Now" is clicked ---
+    const watchForLoginModal = () => {
+        const observer = new MutationObserver(() => {
+            const usernameInput = document.querySelector('input[formcontrolname="userid"]');
+            const passwordInput = document.querySelector('input[formcontrolname="password"]');
+            if (usernameInput && passwordInput) {
+                observer.disconnect();
+                autofillLoginWhenModalAppears();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
     };
 
     /**
@@ -352,6 +364,13 @@
             return false;
         }
 
+        // Prepare to autofill login when modal appears
+        watchForLoginModal();
+
+        // Prepare autofill for login modal (but do NOT trigger it)
+        autofillLoginWhenModalAppears();
+
+        // Book train/class
         await findAndBookTrainClass(selectedBooking);
 
         return fromSuccess && toSuccess;
@@ -379,17 +398,13 @@
         if (typeof chrome !== 'undefined' && chrome.storage?.local) {
             chrome.storage.local.get('trainBookings', async (result) => {
                 const data = result.trainBookings || [];
-                console.log("Loaded bookings from chrome.storage:", data);
                 await fillFromStorage(data);
-                await triggerLoginModalAndAutofill(); // Autofill credentials after form fill
             });
         } else {
             const data = JSON.parse(localStorage.getItem('trainBookings') || '[]');
             await fillFromStorage(data);
-            await triggerLoginModalAndAutofill();
         }
     };
 
-    // Start the autofill process
     start();
 })();
