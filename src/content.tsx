@@ -340,7 +340,7 @@
         }
     };
 
-
+     delay(2000);
     //passengers page
     async function autofillPassengers(passengerList: any[]) {
         // 1. Wait for at least one passenger form to be present
@@ -461,8 +461,7 @@
 
         // Book train/class
         await findAndBookTrainClass(selectedBooking);
-        await delay(50);
-        await autofillPassengers(selectedBooking.passenger);
+        await autofillPassengers(selectedBooking.passengers);
 
         return fromSuccess && toSuccess;
     };
