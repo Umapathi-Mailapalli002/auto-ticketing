@@ -83,71 +83,17 @@
             return false;
         }
 
-        async function clickFirstDateCellAfterClassTab() {
-            // Wait up to 8 seconds for the table to appear
-            let tries = 80;
-            let table = null;
-            while (tries-- > 0 && !table) {
-                // More specific selector including PrimeNG's wrapper component
-                table = document.querySelector(
-                    'app-train-avl-enq div[style*="overflow-x: auto"] > table'
-                );
-                if (!table) await new Promise(res => setTimeout(res, 100));
-            }
-            if (!table) {
-                console.warn('Table not found after waiting');
-                return false;
-            }
+        await delay(300); // Give it time to render WL shell
 
-            // Wait for the first row with ACTUAL CONTENT (not just structural <tr>)
-            let row = null;
-            tries = 30;
-            while (tries-- > 0) {
-                row = table.querySelector('tr');
-                // PrimeNG often adds empty rows initially, wait for populated ones
-                if (row && row.querySelector('td.link.ng-star-inserted')) break;
-                await new Promise(res => setTimeout(res, 100));
-            }
-            if (!row) {
-                console.warn('Row not found in table');
-                return false;
-            }
-
-            // Select only DATE CELLS (td with both link and ng-star-inserted classes)
-            const tdElements = Array.from(row.querySelectorAll('td.link.ng-star-inserted'));
-            console.log('Found date cells:', tdElements.length);
-
-            if (!tdElements.length) {
-                console.warn('No date <td> found');
-                return false;
-            }
-
-            // Click FIRST DATE CELL (index 0)
-            const firstDateTd = tdElements[0];
-            const preAvlDiv = firstDateTd.querySelector('.pre-avl');
-
-            if (!preAvlDiv) {
-                console.warn('No .pre-avl div found in first date cell');
-                return false;
-            }
-
-            // Full click simulation for Angular/PrimeNG
-            preAvlDiv.scrollIntoView({ block: 'center', behavior: 'auto' });
-            ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(eventType => {
-                preAvlDiv.dispatchEvent(new MouseEvent(eventType, {
-                    bubbles: true,
-                    composed: true
-                }));
-            });
-            console.log('✅ Clicked first date cell:', preAvlDiv.textContent?.trim());
-            return true;
+        const wlShell = matchedTrainBlock.querySelector('td.link.ng-star-inserted .WL strong') as HTMLElement;
+        if (wlShell) {
+            console.log("Found WL shell:", wlShell);
+            await delay(100); // Wait for any animations
+            wlShell.click();
+        } else {
+            console.warn("⚠️ WL shell not found under matched train block");
         }
 
-
-
-
-        // Usage:
-        await clickFirstDateCellAfterClassTab();
 
         // 3. Click the first available "Book Now" for this class/timing
         // Book Now button is: <button type="button" class="btnDefault ..."> Book Now </button>
@@ -394,6 +340,87 @@
         }
     };
 
+
+    //passengers page
+    async function autofillPassengers(passengerList: any[]) {
+        // 1. Wait for at least one passenger form to be present
+        let tries = 30;
+        let passengerForms: Element[] = [];
+        while (tries-- > 0) {
+            passengerForms = Array.from(document.querySelectorAll('app-passenger'));
+            if (passengerForms.length > 0) break;
+            await new Promise(res => setTimeout(res, 100));
+        }
+        if (!passengerForms.length) {
+            console.warn('No passenger forms found!');
+            return false;
+        }
+
+        // 2. Add forms if needed
+        const addBtn = Array.from(document.querySelectorAll('span.prenext'))
+            .find(el => el.textContent && el.textContent.trim() === '+ Add Passenger');
+        let current = passengerForms.length;
+        for (let i = current; i < passengerList.length; i++) {
+            (addBtn as HTMLElement)?.click();
+            await new Promise(res => setTimeout(res, 200));
+        }
+
+        // 3. Wait for all forms to appear
+        tries = 30;
+        while (tries-- > 0) {
+            passengerForms = Array.from(document.querySelectorAll('app-passenger'));
+            if (passengerForms.length === passengerList.length) break;
+            await new Promise(res => setTimeout(res, 100));
+        }
+
+        // 4. Autofill each passenger form
+        passengerForms.forEach((form, idx) => {
+            const p = passengerList[idx];
+            if (!p) return;
+
+            // Name (PrimeNG autocomplete)
+            const nameInput = form.querySelector('input[formcontrolname="passengerName"]');
+            if (nameInput) {
+                (nameInput as HTMLInputElement).focus();
+                (nameInput as HTMLInputElement).value = '';
+                nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                // Simulate typing for autocomplete
+                for (let i = 0; i < p.name.length; i++) {
+                    (nameInput as HTMLInputElement).value = p.name.slice(0, i + 1);
+                    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                (nameInput as HTMLInputElement).blur();
+            }
+
+            // Age
+            const ageInput = form.querySelector('input[formcontrolname="passengerAge"]');
+            if (ageInput) {
+                (ageInput as HTMLInputElement).value = p.age;
+                ageInput.dispatchEvent(new Event('input', { bubbles: true }));
+                ageInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            // Gender
+            const genderSelect = form.querySelector('select[formcontrolname="passengerGender"]');
+            if (genderSelect) {
+                (genderSelect as HTMLSelectElement).value = p.gender;
+                genderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            // Nationality
+            const natSelect = form.querySelector('select[formcontrolname="passengerNationality"]');
+            if (natSelect) {
+                (natSelect as HTMLSelectElement).value = p.nationality;
+                natSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        console.log('✅ Autofilled all passenger forms from storage');
+        return true;
+    }
+
+
+
     /**
      * Populates the form fields using the selected booking.
      */
@@ -434,6 +461,8 @@
 
         // Book train/class
         await findAndBookTrainClass(selectedBooking);
+        await delay(50);
+        await autofillPassengers(selectedBooking.passenger);
 
         return fromSuccess && toSuccess;
     };
