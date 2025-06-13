@@ -339,86 +339,85 @@
             }
         }
     };
-
-     delay(2000);
-    //passengers page
-    async function autofillPassengers(passengerList: any[]) {
-        // 1. Wait for at least one passenger form to be present
-        let tries = 30;
-        let passengerForms: Element[] = [];
-        while (tries-- > 0) {
-            passengerForms = Array.from(document.querySelectorAll('app-passenger'));
-            if (passengerForms.length > 0) break;
-            await new Promise(res => setTimeout(res, 100));
-        }
-        if (!passengerForms.length) {
-            console.warn('No passenger forms found!');
-            return false;
-        }
-
-        // 2. Add forms if needed
-        const addBtn = Array.from(document.querySelectorAll('span.prenext'))
-            .find(el => el.textContent && el.textContent.trim() === '+ Add Passenger');
-        let current = passengerForms.length;
-        for (let i = current; i < passengerList.length; i++) {
-            (addBtn as HTMLElement)?.click();
-            await new Promise(res => setTimeout(res, 200));
-        }
-
-        // 3. Wait for all forms to appear
-        tries = 30;
-        while (tries-- > 0) {
-            passengerForms = Array.from(document.querySelectorAll('app-passenger'));
-            if (passengerForms.length === passengerList.length) break;
-            await new Promise(res => setTimeout(res, 100));
-        }
-
-        // 4. Autofill each passenger form
-        passengerForms.forEach((form, idx) => {
-            const p = passengerList[idx];
-            if (!p) return;
-
-            // Name (PrimeNG autocomplete)
-            const nameInput = form.querySelector('input[formcontrolname="passengerName"]');
-            if (nameInput) {
-                (nameInput as HTMLInputElement).focus();
-                (nameInput as HTMLInputElement).value = '';
-                nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-                // Simulate typing for autocomplete
-                for (let i = 0; i < p.name.length; i++) {
-                    (nameInput as HTMLInputElement).value = p.name.slice(0, i + 1);
-                    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-                (nameInput as HTMLInputElement).blur();
-            }
-
-            // Age
-            const ageInput = form.querySelector('input[formcontrolname="passengerAge"]');
-            if (ageInput) {
-                (ageInput as HTMLInputElement).value = p.age;
-                ageInput.dispatchEvent(new Event('input', { bubbles: true }));
-                ageInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-
-            // Gender
-            const genderSelect = form.querySelector('select[formcontrolname="passengerGender"]');
-            if (genderSelect) {
-                (genderSelect as HTMLSelectElement).value = p.gender;
-                genderSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-
-            // Nationality
-            const natSelect = form.querySelector('select[formcontrolname="passengerNationality"]');
-            if (natSelect) {
-                (natSelect as HTMLSelectElement).value = p.nationality;
-                natSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        });
-
-        console.log('✅ Autofilled all passenger forms from storage');
-        return true;
+ 
+   async function autofillPassengers(passengerList: Array<{ name: string; age: string | number; gender: string; nationality: string; berth?: string }>) {
+    // Wait for all passenger fields to be present
+    let tries = 30;
+    let nameInputs, ageInputs, genderSelects, nationalitySelects, berthSelects;
+    while (tries-- > 0) {
+        nameInputs         = document.querySelectorAll('[formcontrolname="passengerName"]');
+        ageInputs          = document.querySelectorAll('[formcontrolname="passengerAge"]');
+        genderSelects      = document.querySelectorAll('[formcontrolname="passengerGender"]');
+        nationalitySelects = document.querySelectorAll('[formcontrolname="passengerNationality"]');
+        berthSelects       = document.querySelectorAll('[formcontrolname="passengerBerthChoice"]');
+        if (
+            nameInputs.length >= passengerList.length &&
+            ageInputs.length >= passengerList.length &&
+            genderSelects.length >= passengerList.length &&
+            nationalitySelects.length >= passengerList.length &&
+            berthSelects.length >= passengerList.length
+        ) break;
+        await new Promise(res => setTimeout(res, 100));
     }
 
+    for (let i = 0; i < passengerList.length; i++) {
+        const p = passengerList[i];
+        // Name (simulate typing for Angular/PrimeNG)
+        if (nameInputs[i]) {
+            nameInputs[i].focus();
+            nameInputs[i].value = '';
+            nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+            for (let j = 0; j < p.name.length; j++) {
+                nameInputs[i].value = p.name.slice(0, j + 1);
+                nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            nameInputs[i].blur();
+        }
+        // Age
+        if (ageInputs[i]) {
+            ageInputs[i].value = p.age;
+            ageInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+            ageInputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Gender
+        if (genderSelects[i]) {
+            genderSelects[i].value = p.gender;
+            genderSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Nationality
+        if (nationalitySelects[i]) {
+            nationalitySelects[i].value = p.nationality;
+            nationalitySelects[i].dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Berth
+        if (berthSelects[i] && p.berth) {
+            berthSelects[i].value = p.berth;
+            berthSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+    console.log('✅ Autofilled all passenger forms from storage');
+}
+
+
+function triggerOnPassengerPage(passengerData: any[]) {
+    // Only run if on the correct URL
+    if (window.location.pathname !== "/nget/booking/psgninput") return;
+
+    // Check if passenger form is already present
+    if (document.querySelector('[formcontrolname="passengerName"]')) {
+        autofillPassengers(passengerData);
+        return;
+    }
+
+    // Otherwise, observe for form fields to appear
+    const observer = new MutationObserver((_, obs) => {
+        if (document.querySelector('[formcontrolname="passengerName"]')) {
+            obs.disconnect();
+            autofillPassengers(passengerData);
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+}
 
 
     /**
@@ -461,8 +460,8 @@
 
         // Book train/class
         await findAndBookTrainClass(selectedBooking);
-        await autofillPassengers(selectedBooking.passengers);
 
+        await triggerOnPassengerPage(selectedBooking.passengers);
         return fromSuccess && toSuccess;
     };
 
