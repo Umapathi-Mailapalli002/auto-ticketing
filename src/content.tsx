@@ -84,7 +84,6 @@
         }
 
         await delay(300); // Give it time to render WL shell
-
         const wlShell = matchedTrainBlock.querySelector('td.link.ng-star-inserted .WL strong') as HTMLElement;
         if (wlShell) {
             console.log("Found WL shell:", wlShell);
@@ -95,9 +94,7 @@
         }
 
 
-        // 3. Click the first available "Book Now" for this class/timing
-        // Book Now button is: <button type="button" class="btnDefault ..."> Book Now </button>
-        // Only click if not disabled
+        await delay(300); // Give it time to render WL shell
         const bookBtn = matchedTrainBlock.querySelector('button.btnDefault:not(.disable-book):not([disabled])');
         if (bookBtn) {
             bookBtn.scrollIntoView({ block: 'center' });
@@ -339,85 +336,93 @@
             }
         }
     };
- 
-   async function autofillPassengers(passengerList: Array<{ name: string; age: string | number; gender: string; nationality: string; berth?: string }>) {
-    // Wait for all passenger fields to be present
-    let tries = 30;
-    let nameInputs, ageInputs, genderSelects, nationalitySelects, berthSelects;
-    while (tries-- > 0) {
-        nameInputs         = document.querySelectorAll('[formcontrolname="passengerName"]');
-        ageInputs          = document.querySelectorAll('[formcontrolname="passengerAge"]');
-        genderSelects      = document.querySelectorAll('[formcontrolname="passengerGender"]');
-        nationalitySelects = document.querySelectorAll('[formcontrolname="passengerNationality"]');
-        berthSelects       = document.querySelectorAll('[formcontrolname="passengerBerthChoice"]');
+
+function autofillPassengersJob(passengerList: any[]) {
+    const intervalId = setInterval(async () => {
+        // Select all fields for all passenger rows
+        const nameInputs         = document.querySelectorAll<HTMLInputElement>('[formcontrolname="passengerName"]');
+        const ageInputs          = document.querySelectorAll<HTMLInputElement>('[formcontrolname="passengerAge"]');
+        const genderSelects      = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerGender"]');
+        const nationalitySelects = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerNationality"]');
+        const berthSelects       = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerBerthChoice"]');
+
+        // Check if at least the first row is present
         if (
-            nameInputs.length >= passengerList.length &&
-            ageInputs.length >= passengerList.length &&
-            genderSelects.length >= passengerList.length &&
-            nationalitySelects.length >= passengerList.length &&
-            berthSelects.length >= passengerList.length
-        ) break;
-        await new Promise(res => setTimeout(res, 100));
-    }
+            nameInputs.length === 0 ||
+            ageInputs.length === 0 ||
+            genderSelects.length === 0 ||
+            nationalitySelects.length === 0 ||
+            berthSelects.length === 0
+        ) {
+            console.log("Waiting for passenger input fields...");
+            return; // Try again in next interval
+        }
 
-    for (let i = 0; i < passengerList.length; i++) {
-        const p = passengerList[i];
-        // Name (simulate typing for Angular/PrimeNG)
-        if (nameInputs[i]) {
-            nameInputs[i].focus();
-            nameInputs[i].value = '';
-            nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-            for (let j = 0; j < p.name.length; j++) {
-                nameInputs[i].value = p.name.slice(0, j + 1);
-                nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+        // Fill each passenger, adding new forms as needed
+        for (let i = 0; i < passengerList.length; i++) {
+            // Add a new row if needed
+            if (i > 0 && nameInputs.length <= i) {
+                const addBtn = Array.from(document.querySelectorAll('span.prenext'))
+                    .find(el => el.textContent && el.textContent.trim() === '+ Add Passenger');
+                if (addBtn) {
+                    (addBtn as HTMLElement).click();
+                    await new Promise(res => setTimeout(res, 300));
+                } else {
+                    console.warn('Add Passenger button not found!');
+                    clearInterval(intervalId);
+                    return;
+                }
             }
-            nameInputs[i].blur();
+
+            // Wait for the new row to appear
+            let tries = 10;
+            while (
+                (nameInputs.length <= i ||
+                ageInputs.length <= i ||
+                genderSelects.length <= i ||
+                nationalitySelects.length <= i ||
+                berthSelects.length <= i) && tries-- > 0
+            ) {
+                await new Promise(res => setTimeout(res, 100));
+            }
+
+            // Fill the fields for this passenger
+            const p = passengerList[i];
+            if (nameInputs[i]) {
+                nameInputs[i].focus();
+                nameInputs[i].value = '';
+                nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                for (let j = 0; j < p.name.length; j++) {
+                    nameInputs[i].value = p.name.slice(0, j + 1);
+                    nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                nameInputs[i].blur();
+            }
+            if (ageInputs[i]) {
+                ageInputs[i].value = String(p.age);
+                ageInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                ageInputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (genderSelects[i]) {
+                genderSelects[i].value = p.gender;
+                genderSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (nationalitySelects[i]) {
+                nationalitySelects[i].value = p.nationality;
+                nationalitySelects[i].dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (berthSelects[i] && p.berth) {
+                berthSelects[i].value = p.berth;
+                berthSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
+            }
         }
-        // Age
-        if (ageInputs[i]) {
-            ageInputs[i].value = p.age;
-            ageInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-            ageInputs[i].dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        // Gender
-        if (genderSelects[i]) {
-            genderSelects[i].value = p.gender;
-            genderSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        // Nationality
-        if (nationalitySelects[i]) {
-            nationalitySelects[i].value = p.nationality;
-            nationalitySelects[i].dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        // Berth
-        if (berthSelects[i] && p.berth) {
-            berthSelects[i].value = p.berth;
-            berthSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
-        }
-    }
-    console.log('✅ Autofilled all passenger forms from storage');
+
+        // All passengers filled, stop the interval
+        clearInterval(intervalId);
+        console.log('✅ All passengers autofilled and forms added as needed.');
+    }, 1000); // Run every 1 second
 }
 
-
-function triggerOnPassengerPage(passengerData: any[]) {
-    // Only run if on the correct URL
-    if (window.location.pathname !== "/nget/booking/psgninput") return;
-
-    // Check if passenger form is already present
-    if (document.querySelector('[formcontrolname="passengerName"]')) {
-        autofillPassengers(passengerData);
-        return;
-    }
-
-    // Otherwise, observe for form fields to appear
-    const observer = new MutationObserver((_, obs) => {
-        if (document.querySelector('[formcontrolname="passengerName"]')) {
-            obs.disconnect();
-            autofillPassengers(passengerData);
-        }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-}
 
 
     /**
@@ -460,8 +465,10 @@ function triggerOnPassengerPage(passengerData: any[]) {
 
         // Book train/class
         await findAndBookTrainClass(selectedBooking);
+        await delay(300);
 
-        await triggerOnPassengerPage(selectedBooking.passengers);
+        autofillPassengersJob(selectedBooking.passengers);
+
         return fromSuccess && toSuccess;
     };
 
