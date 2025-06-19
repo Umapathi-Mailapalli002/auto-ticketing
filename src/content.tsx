@@ -441,11 +441,37 @@
                 if (berthSelects[i] && p.seatPref) {
                     setSelectValue(berthSelects[i], String(p.seatPref));
                 }
-                console.log("Gender options:", Array.from(genderSelects[i].options).map(opt => [opt.value, opt.text]));
-                console.log("Trying to set gender to:", String(p.gender).toUpperCase());
-                console.log("Berth options:", Array.from(berthSelects[i].options).map(opt => [opt.value, opt.text]));
-                console.log("Trying to set berth to:", String(p.seatPref).toUpperCase());
+                function selectPaymentMethod(paymentValue: string) {
+                    // Find the radio input by value
+                    const radioInput = document.querySelector<HTMLInputElement>(
+                        `input[type="radio"][name="paymentType"][value="${paymentValue}"]`
+                    );
+                    if (radioInput) {
+                        radioInput.click(); // This should select the method and update the form model
+                        // Optionally, click the visible box for UI feedback (PrimeNG/Angular)
+                        const radiobuttonBox = radioInput.closest('.ui-radiobutton')?.querySelector('.ui-radiobutton-box');
+                        if (radiobuttonBox) {
+                            (radiobuttonBox as HTMLElement).click();
+                        }
+                        console.log(`✅ Selected payment method: ${paymentValue}`);
+                    } else {
+                        console.warn(`❌ Payment radio button with value "${paymentValue}" not found`);
+                    }
+                }
 
+                // Example usage: select "Credit & Debit Cards / Net Banking / Wallets / EMI / Rewards and Others"
+                selectPaymentMethod("3");
+
+                // Example usage: select "BHIM/UPI"
+                selectPaymentMethod("2");
+
+                const continueButton = document.querySelector('.train_Search.btnDefault')
+                if ((continueButton as HTMLElement).innerText.trim() === 'Continue') {
+                    (continueButton as HTMLElement).click();
+                    await delay(300);
+                    console.log(`✅ Autofilled passenger ${i + 1}/${passengerList.length}`);
+                    
+                };
 
             }
 

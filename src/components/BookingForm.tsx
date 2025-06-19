@@ -200,7 +200,6 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
               <option value="Card">Card</option>
               <option value="NetBanking">Net Banking</option>
               <option value="Wallet">Wallet</option>
-              <option value="Cash on Counter">Cash on Counter</option>
             </select>
           </div>
 
