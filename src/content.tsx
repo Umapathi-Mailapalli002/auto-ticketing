@@ -337,93 +337,122 @@
         }
     };
 
-function autofillPassengersJob(passengerList: any[]) {
-    const intervalId = setInterval(async () => {
-        // Select all fields for all passenger rows
-        const nameInputs         = document.querySelectorAll<HTMLInputElement>('[formcontrolname="passengerName"]');
-        const ageInputs          = document.querySelectorAll<HTMLInputElement>('[formcontrolname="passengerAge"]');
-        const genderSelects      = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerGender"]');
-        const nationalitySelects = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerNationality"]');
-        const berthSelects       = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerBerthChoice"]');
+    function autofillPassengersJob(passengerList: any[]) {
+        const intervalId = setInterval(async () => {
+            // Correct selector for name input (PrimeNG autocomplete)
+            const nameInputs = document.querySelectorAll<HTMLInputElement>(
+                'p-autocomplete[formcontrolname="passengerName"] input[placeholder="Name"]'
+            );
+            const ageInputs = document.querySelectorAll<HTMLInputElement>('[formcontrolname="passengerAge"]');
+            const genderSelects = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerGender"]');
+            const berthSelects = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerBerthChoice"]');
 
-        // Check if at least the first row is present
-        if (
-            nameInputs.length === 0 ||
-            ageInputs.length === 0 ||
-            genderSelects.length === 0 ||
-            nationalitySelects.length === 0 ||
-            berthSelects.length === 0
-        ) {
-            console.log("Waiting for passenger input fields...");
-            return; // Try again in next interval
-        }
-
-        // Fill each passenger, adding new forms as needed
-        for (let i = 0; i < passengerList.length; i++) {
-            // Add a new row if needed
-            if (i > 0 && nameInputs.length <= i) {
-                const addBtn = Array.from(document.querySelectorAll('span.prenext'))
-                    .find(el => el.textContent && el.textContent.trim() === '+ Add Passenger');
-                if (addBtn) {
-                    (addBtn as HTMLElement).click();
-                    await new Promise(res => setTimeout(res, 300));
-                } else {
-                    console.warn('Add Passenger button not found!');
-                    clearInterval(intervalId);
-                    return;
-                }
-            }
-
-            // Wait for the new row to appear
-            let tries = 10;
-            while (
-                (nameInputs.length <= i ||
-                ageInputs.length <= i ||
-                genderSelects.length <= i ||
-                nationalitySelects.length <= i ||
-                berthSelects.length <= i) && tries-- > 0
+            // Wait until at least the first row is loaded
+            if (
+                nameInputs.length === 0 ||
+                ageInputs.length === 0 ||
+                genderSelects.length === 0 ||
+                berthSelects.length === 0
             ) {
-                await new Promise(res => setTimeout(res, 100));
+                console.log("⏳ Waiting for passenger form to load...");
+                return;
             }
 
-            // Fill the fields for this passenger
-            const p = passengerList[i];
-            if (nameInputs[i]) {
-                nameInputs[i].focus();
-                nameInputs[i].value = '';
-                nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-                for (let j = 0; j < p.name.length; j++) {
-                    nameInputs[i].value = p.name.slice(0, j + 1);
-                    nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+            for (let i = 0; i < passengerList.length; i++) {
+                // Add row if needed
+                let currentNameInputs = document.querySelectorAll<HTMLInputElement>(
+                    'p-autocomplete[formcontrolname="passengerName"] input[placeholder="Name"]'
+                );
+                if (i > 0 && currentNameInputs.length <= i) {
+                    const addBtn = Array.from(document.querySelectorAll('span.prenext'))
+                        .find(el => el.textContent?.trim() === '+ Add Passenger');
+                    if (addBtn) {
+                        (addBtn as HTMLElement).click();
+                        await new Promise(res => setTimeout(res, 300));
+                    } else {
+                        console.warn("❌ 'Add Passenger' button not found.");
+                        clearInterval(intervalId);
+                        return;
+                    }
                 }
-                nameInputs[i].blur();
-            }
-            if (ageInputs[i]) {
-                ageInputs[i].value = String(p.age);
-                ageInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-                ageInputs[i].dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            if (genderSelects[i]) {
-                genderSelects[i].value = p.gender;
-                genderSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            if (nationalitySelects[i]) {
-                nationalitySelects[i].value = p.nationality;
-                nationalitySelects[i].dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            if (berthSelects[i] && p.berth) {
-                berthSelects[i].value = p.berth;
-                berthSelects[i].dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
 
-        // All passengers filled, stop the interval
-        clearInterval(intervalId);
-        console.log('✅ All passengers autofilled and forms added as needed.');
-    }, 1000); // Run every 1 second
-}
+                // Wait until the new row is present
+                let tries = 10;
+                while (
+                    document.querySelectorAll<HTMLInputElement>(
+                        'p-autocomplete[formcontrolname="passengerName"] input[placeholder="Name"]'
+                    ).length <= i &&
+                    tries-- > 0
+                ) {
+                    await new Promise(res => setTimeout(res, 100));
+                }
+
+                // Re-query all fields to get the latest row
+                const nameInputs = document.querySelectorAll<HTMLInputElement>(
+                    'p-autocomplete[formcontrolname="passengerName"] input[placeholder="Name"]'
+                );
+                const ageInputs = document.querySelectorAll<HTMLInputElement>('[formcontrolname="passengerAge"]');
+                const genderSelects = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerGender"]');
+                const berthSelects = document.querySelectorAll<HTMLSelectElement>('[formcontrolname="passengerBerthChoice"]');
+
+                const p = passengerList[i];
+
+                // Fill name (simulate typing for PrimeNG autocomplete)
+                if (nameInputs[i]) {
+                    nameInputs[i].focus();
+                    nameInputs[i].value = '';
+                    nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                    for (let j = 0; j < p.name.length; j++) {
+                        nameInputs[i].value = p.name.slice(0, j + 1);
+                        nameInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    nameInputs[i].blur();
+                }
+
+                // Fill age
+                if (ageInputs[i]) {
+                    ageInputs[i].value = String(p.age);
+                    ageInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                    ageInputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+                }
 
 
+                function setSelectValue(select: HTMLSelectElement, value: string) {
+                    // Find the matching option
+                    const options = Array.from(select.options);
+                    const found = options.find(opt => opt.text === value);
+                    if (found) {
+                        select.value = value;
+                        select.selectedIndex = options.indexOf(found);
+                        // Dispatch both events for Angular/PrimeNG
+                        select.dispatchEvent(new Event('input', { bubbles: true }));
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                        // Extra: blur to trigger validation
+                        select.blur();
+                    } else {
+                        console.warn(`Value "${value}" not found in options`, options.map(o => o.value));
+                    }
+                }
+
+                // Usage inside your autofill loop:
+                if (genderSelects[i]) {
+                    setSelectValue(genderSelects[i], String(p.gender));
+                }
+                if (berthSelects[i] && p.seatPref) {
+                    setSelectValue(berthSelects[i], String(p.seatPref));
+                }
+                console.log("Gender options:", Array.from(genderSelects[i].options).map(opt => [opt.value, opt.text]));
+                console.log("Trying to set gender to:", String(p.gender).toUpperCase());
+                console.log("Berth options:", Array.from(berthSelects[i].options).map(opt => [opt.value, opt.text]));
+                console.log("Trying to set berth to:", String(p.seatPref).toUpperCase());
+
+
+            }
+
+            clearInterval(intervalId);
+            console.log("✅ All passengers filled.");
+        }, 1000);
+    }
 
     /**
      * Populates the form fields using the selected booking.

@@ -182,7 +182,7 @@ function BookingForm({ onAdd }: { onAdd: () => void }) {
               className={inputStyle}
             />
             <input
-              type="text"
+              type="password"
               name="password"
               placeholder="Password"
               value={credentials.password}

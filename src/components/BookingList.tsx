@@ -205,7 +205,7 @@ export default function BookingList() {
                 {b.credentials && (
                   <>
                     <p><strong>Username:</strong> {b.credentials.username}</p>
-                    <p><strong>Password:</strong> {b.credentials.password}</p>
+                    <p><strong>Password:</strong>***********</p>
                   </>
                 )}
                 {b.credentials && <p><strong>Payment Method:</strong> {b.credentials.paymentMethod}</p>}
