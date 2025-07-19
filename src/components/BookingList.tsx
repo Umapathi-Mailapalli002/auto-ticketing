@@ -173,7 +173,7 @@ export default function BookingList() {
                   b.credentials && (
                     <>
                       <p><strong>Username:</strong> {b.credentials.username}</p>
-                      <p><strong>Password:</strong> {b.credentials.password}</p> {/* Masking password for display */}
+                      <p><strong>Password:</strong> **********</p> {/* Masking password for display */}
                     </>
                   )
                 }
